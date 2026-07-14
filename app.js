@@ -432,22 +432,32 @@ function fastingPanelMarkup() {
 
   return `
     <section class="fasting-card ${fast.active ? "active" : ""} ${fast.complete ? "complete" : ""}">
-      <div class="fasting-copy">
+      <div class="fasting-heading">
+        <div class="fasting-copy">
         <p class="eyebrow">Fasting</p>
-        <h2>${statusCopy}</h2>
-        <span>${fast.active ? `${fast.elapsedLabel} of ${fast.targetLabel}` : `Target ${fast.targetLabel}`}</span>
+          <h2 data-fasting-status>${statusCopy}</h2>
+          <span data-fasting-target>Target ${fast.targetLabel}</span>
+        </div>
+        <div class="fasting-clock ${fast.active ? "running" : ""}" data-fasting-clock aria-label="Elapsed fasting time">
+          ${fast.clockLabel}
+        </div>
       </div>
-      <div class="fasting-progress" aria-label="${fast.percent}% fasting target complete">
-        <div class="fasting-meter"><span style="width:${fast.percent}%"></span></div>
-        <strong>${fast.percent}%</strong>
+      <div class="fasting-progress" data-fasting-progress aria-label="${fast.percent}% fasting target complete">
+        <div class="fasting-progress-copy">
+          <span>${fast.active ? "Progress" : "Ready when you are"}</span>
+          <strong data-fasting-percent>${fast.percent}%</strong>
+        </div>
+        <div class="fasting-meter"><span data-fasting-meter style="width:${fast.percent}%"></span></div>
       </div>
-      <label class="fasting-log-field">
-        <span>Today</span>
-        <input type="number" inputmode="decimal" min="0" max="168" step="0.25" value="${formatHoursInput(log.minutes)}" data-action="fasting-log" data-date="${todayKey()}" />
-      </label>
-      <button class="${fast.active ? "secondary-action" : "primary-action"} fasting-toggle" data-action="toggle-fasting">
-        <span>${fast.active ? "End fast" : "Start fast"}</span>
-      </button>
+      <div class="fasting-actions">
+        <label class="fasting-log-field">
+          <span>Logged hours</span>
+          <input type="number" inputmode="decimal" min="0" max="168" step="0.25" value="${formatHoursInput(log.minutes)}" data-action="fasting-log" data-date="${todayKey()}" />
+        </label>
+        <button class="${fast.active ? "secondary-action" : "primary-action"} fasting-toggle" data-action="toggle-fasting">
+          <span>${fast.active ? "End fast" : "Start fast"}</span>
+        </button>
+      </div>
     </section>
   `;
 }
@@ -466,18 +476,42 @@ function fastingLog(dateKey) {
 
 function fastingStatus(now = new Date()) {
   state.fasting = normalizeFasting(state.fasting);
-  const targetMinutes = state.fasting.targetHours * 60;
+  const targetSeconds = state.fasting.targetHours * 60 * 60;
   const started = state.fasting.active ? new Date(state.fasting.startedAt) : null;
-  const elapsedMinutes = started && !Number.isNaN(started.getTime()) ? Math.max(0, Math.floor((now - started) / 60000)) : 0;
-  const percent = state.fasting.active ? Math.min(100, Math.round((elapsedMinutes / targetMinutes) * 100)) : 0;
+  const elapsedSeconds = started && !Number.isNaN(started.getTime()) ? Math.max(0, Math.floor((now - started) / 1000)) : 0;
+  const elapsedMinutes = Math.floor(elapsedSeconds / 60);
+  const percent = state.fasting.active ? Math.min(100, Math.round((elapsedSeconds / targetSeconds) * 100)) : 0;
   return {
     active: state.fasting.active,
-    complete: state.fasting.active && elapsedMinutes >= targetMinutes,
+    complete: state.fasting.active && elapsedSeconds >= targetSeconds,
+    elapsedSeconds,
     elapsedMinutes,
     percent,
-    targetLabel: durationLabel(targetMinutes),
-    elapsedLabel: durationLabel(elapsedMinutes)
+    targetLabel: durationLabel(targetSeconds / 60),
+    clockLabel: formatFastingClock(elapsedSeconds)
   };
+}
+
+function formatFastingClock(totalSeconds) {
+  const cleanSeconds = Math.max(0, Math.floor(Number(totalSeconds || 0)));
+  const hours = Math.floor(cleanSeconds / 3600);
+  const minutes = Math.floor((cleanSeconds % 3600) / 60);
+  const seconds = cleanSeconds % 60;
+  return [hours, minutes, seconds].map((part) => String(part).padStart(2, "0")).join(":");
+}
+
+function updateFastingTicker() {
+  if (activeView !== "today") return;
+  const card = document.querySelector(".fasting-card");
+  if (!card || !normalizeFasting(state.fasting).active) return;
+  const fast = fastingStatus();
+  const status = fast.complete ? "Fast complete. Golden hour." : "Fast in progress. Steady does it.";
+  card.classList.toggle("complete", fast.complete);
+  card.querySelector("[data-fasting-clock]").textContent = fast.clockLabel;
+  card.querySelector("[data-fasting-status]").textContent = status;
+  card.querySelector("[data-fasting-percent]").textContent = `${fast.percent}%`;
+  card.querySelector("[data-fasting-meter]").style.width = `${fast.percent}%`;
+  card.querySelector("[data-fasting-progress]").setAttribute("aria-label", `${fast.percent}% fasting target complete`);
 }
 
 function durationLabel(totalMinutes) {
@@ -1857,13 +1891,11 @@ function resizeHabitImage(file) {
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("service-worker.js?v=25").catch((error) => console.warn("Service worker failed", error));
+    navigator.serviceWorker.register("service-worker.js?v=26").catch((error) => console.warn("Service worker failed", error));
   });
 }
 
-window.setInterval(() => {
-  if (activeView === "today" && normalizeFasting(state.fasting).active) renderSoon();
-}, 60000);
+window.setInterval(updateFastingTicker, 1000);
 
 render();
 initCloudSync();

@@ -89,6 +89,7 @@ loadCloudState = async function () {
     state.habits = data.data.habits;
     state.entries = data.data.entries || {};
     state.createdAt = data.data.createdAt || todayKey();
+    state.fasting = normalizeFasting(data.data.fasting);
     if (data.data.localSounds && typeof data.data.localSounds === "object") {
       Object.keys(localSounds).forEach((id) => delete localSounds[id]);
       Object.assign(localSounds, data.data.localSounds);
@@ -202,6 +203,7 @@ statsView = function () {
         <span><i class="perfect"></i>Perfect</span>
       </div>
     </section>
+    ${fastingHistoryMarkup()}
   `;
 };
 

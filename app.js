@@ -8,6 +8,7 @@ const SAUNA_TRACK = {
 };
 const PERIOD_FREQUENCIES = ["weekly", "monthly", "halfyear", "yearly"];
 const HABIT_COLORS = ["#45a66b", "#e6b85c", "#ff776d", "#4f8fbf", "#9a72b5", "#28a7a1"];
+const DEFAULT_FASTING = { targetHours: 12, active: false, startedAt: "" };
 const SYNC_CONFIG = {
   url: "https://hwjyupnbybekckearloz.supabase.co",
   key: "sb_publishable_dtdIdtfFdTVYqkWGEVxVQA_XN2ZetBM",
@@ -53,7 +54,8 @@ function loadState() {
       return {
         habits: parsed.habits,
         entries: parsed.entries || {},
-        createdAt: parsed.createdAt || todayKey()
+        createdAt: parsed.createdAt || todayKey(),
+        fasting: normalizeFasting(parsed.fasting)
       };
     }
   } catch (error) {
@@ -63,7 +65,20 @@ function loadState() {
   return {
     habits: defaultHabits,
     entries: {},
-    createdAt: todayKey()
+    createdAt: todayKey(),
+    fasting: normalizeFasting()
+  };
+}
+
+function normalizeFasting(fasting = {}) {
+  const targetHours = Math.min(168, Math.max(1, Number(fasting.targetHours || DEFAULT_FASTING.targetHours)));
+  const startedAt = typeof fasting.startedAt === "string" ? fasting.startedAt : "";
+  const logs = fasting.logs && typeof fasting.logs === "object" ? fasting.logs : {};
+  return {
+    targetHours,
+    active: Boolean(fasting.active && startedAt),
+    startedAt,
+    logs
   };
 }
 
@@ -366,6 +381,8 @@ function todayView() {
   const percent = dailyHabits.length ? Math.round((completed / dailyHabits.length) * 100) : 0;
 
   return `
+    ${fastingPanelMarkup()}
+
     <section class="hero-band">
       <div>
         <p class="eyebrow">Today</p>
@@ -402,6 +419,78 @@ function todayView() {
       </div>
     </section>
   `;
+}
+
+function fastingPanelMarkup() {
+  const fast = fastingStatus();
+  const log = fastingLog(todayKey());
+  const statusCopy = fast.active
+    ? fast.complete
+      ? "Fast complete. Golden hour."
+      : "Fast in progress. Steady does it."
+    : "Not fasting. Ready when you are.";
+
+  return `
+    <section class="fasting-card ${fast.active ? "active" : ""} ${fast.complete ? "complete" : ""}">
+      <div class="fasting-copy">
+        <p class="eyebrow">Fasting</p>
+        <h2>${statusCopy}</h2>
+        <span>${fast.active ? `${fast.elapsedLabel} of ${fast.targetLabel}` : `Target ${fast.targetLabel}`}</span>
+      </div>
+      <div class="fasting-progress" aria-label="${fast.percent}% fasting target complete">
+        <div class="fasting-meter"><span style="width:${fast.percent}%"></span></div>
+        <strong>${fast.percent}%</strong>
+      </div>
+      <label class="fasting-log-field">
+        <span>Today</span>
+        <input type="number" inputmode="decimal" min="0" max="168" step="0.25" value="${formatHoursInput(log.minutes)}" data-action="fasting-log" data-date="${todayKey()}" />
+      </label>
+      <button class="${fast.active ? "secondary-action" : "primary-action"} fasting-toggle" data-action="toggle-fasting">
+        <span>${fast.active ? "End fast" : "Start fast"}</span>
+      </button>
+    </section>
+  `;
+}
+
+function fastingLog(dateKey) {
+  state.fasting = normalizeFasting(state.fasting);
+  const existing = state.fasting.logs[dateKey] || {};
+  const targetHours = Number(existing.targetHours || state.fasting.targetHours || DEFAULT_FASTING.targetHours);
+  const minutes = Math.max(0, Number(existing.minutes || 0));
+  return {
+    minutes,
+    targetHours,
+    hit: minutes >= targetHours * 60
+  };
+}
+
+function fastingStatus(now = new Date()) {
+  state.fasting = normalizeFasting(state.fasting);
+  const targetMinutes = state.fasting.targetHours * 60;
+  const started = state.fasting.active ? new Date(state.fasting.startedAt) : null;
+  const elapsedMinutes = started && !Number.isNaN(started.getTime()) ? Math.max(0, Math.floor((now - started) / 60000)) : 0;
+  const percent = state.fasting.active ? Math.min(100, Math.round((elapsedMinutes / targetMinutes) * 100)) : 0;
+  return {
+    active: state.fasting.active,
+    complete: state.fasting.active && elapsedMinutes >= targetMinutes,
+    elapsedMinutes,
+    percent,
+    targetLabel: durationLabel(targetMinutes),
+    elapsedLabel: durationLabel(elapsedMinutes)
+  };
+}
+
+function durationLabel(totalMinutes) {
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (!hours) return `${minutes}m`;
+  if (!minutes) return `${hours}h`;
+  return `${hours}h ${minutes}m`;
+}
+
+function formatHoursInput(minutes) {
+  const hours = Number(minutes || 0) / 60;
+  return Number.isInteger(hours) ? String(hours) : String(Number(hours.toFixed(2)));
 }
 
 function dailyHabitMarkup(habit, dateKey) {
@@ -640,6 +729,39 @@ function statsView() {
         <span><i class="perfect"></i>Perfect</span>
       </div>
     </section>
+
+    ${fastingHistoryMarkup()}
+  `;
+}
+
+function fastingHistoryMarkup() {
+  state.fasting = normalizeFasting(state.fasting);
+  const dates = knownDateRange().slice(-14).reverse();
+  const rows = dates
+    .map((dateKey) => {
+      const log = fastingLog(dateKey);
+      const hasLog = log.minutes > 0;
+      return `
+        <label class="fasting-history-row ${hasLog ? (log.hit ? "hit" : "missed") : "empty"}">
+          <span>
+            <strong>${formatDate(dateKey, "short")}</strong>
+            <small>${hasLog ? `${durationLabel(log.minutes)} / ${durationLabel(log.targetHours * 60)}` : "No fast logged"}</small>
+          </span>
+          <em>${hasLog ? (log.hit ? "Target hit" : "Below target") : "Skipped"}</em>
+          <input type="number" inputmode="decimal" min="0" max="168" step="0.25" value="${formatHoursInput(log.minutes)}" data-action="fasting-log" data-date="${dateKey}" aria-label="${escapeAttr(`Fast hours for ${formatDate(dateKey)}`)}" />
+        </label>
+      `;
+    })
+    .join("");
+
+  return `
+    <section class="panel fasting-history-panel">
+      <div class="panel-heading">
+        <h2>Fasting history</h2>
+        <span>Editable</span>
+      </div>
+      <div class="fasting-history-list">${rows}</div>
+    </section>
   `;
 }
 
@@ -730,6 +852,17 @@ function settingsView() {
       <label class="field">
         <span>Start date</span>
         <input type="date" max="${todayKey()}" value="${escapeAttr(state.createdAt)}" data-action="start-date" />
+      </label>
+    </section>
+
+    <section class="panel fasting-settings-panel">
+      <div>
+        <h2>Fasting timer</h2>
+        <p>Choose the target for the main-page fasting switch.</p>
+      </div>
+      <label class="field">
+        <span>Target hours</span>
+        <input type="number" min="1" max="168" step="1" value="${Number(state.fasting?.targetHours || DEFAULT_FASTING.targetHours)}" data-action="fasting-target" />
       </label>
     </section>
 
@@ -887,6 +1020,23 @@ function bindView() {
         render();
       });
     }
+    if (action === "fasting-target") {
+      element.addEventListener("change", () => {
+        state.fasting = normalizeFasting({
+          ...(state.fasting || {}),
+          targetHours: element.value
+        });
+        saveState();
+        render();
+      });
+    }
+    if (action === "fasting-log") {
+      element.addEventListener("change", () => {
+        setFastingLog(element.dataset.date, Number(element.value || 0) * 60);
+        render();
+      });
+    }
+    if (action === "toggle-fasting") element.addEventListener("click", toggleFasting);
     if (action === "sync-sign-out") element.addEventListener("click", signOutOfSync);
     if (action === "sync-setup-link") element.addEventListener("click", sendSyncSetupLink);
     if (action === "toggle-history-day") element.addEventListener("click", () => toggleHistoryDay(element.dataset.date));
@@ -1098,6 +1248,38 @@ function openHabitDialog(habit = null) {
   });
 }
 
+function toggleFasting() {
+  state.fasting = normalizeFasting(state.fasting);
+  if (state.fasting.active) {
+    const status = fastingStatus();
+    setFastingLog(todayKey(), status.elapsedMinutes);
+    state.fasting.active = false;
+    state.fasting.startedAt = "";
+  } else {
+    state.fasting.active = true;
+    state.fasting.startedAt = new Date().toISOString();
+  }
+  saveState();
+  render();
+}
+
+function setFastingLog(dateKey, minutes) {
+  state.fasting = normalizeFasting(state.fasting);
+  const cleanMinutes = Math.max(0, Math.round(Number(minutes || 0)));
+  if (!cleanMinutes) {
+    delete state.fasting.logs[dateKey];
+    saveState();
+    return;
+  }
+  state.fasting.logs[dateKey] = {
+    minutes: cleanMinutes,
+    targetHours: Number(state.fasting.targetHours || DEFAULT_FASTING.targetHours),
+    updatedAt: new Date().toISOString()
+  };
+  saveState();
+}
+
+
 function exportData() {
   const backup = {
     format: "perfect-day-backup",
@@ -1129,6 +1311,7 @@ function importData(event) {
       state.habits = importedState.habits;
       state.entries = importedState.entries || {};
       state.createdAt = importedState.createdAt || todayKey();
+      state.fasting = normalizeFasting(importedState.fasting);
       Object.keys(localSounds).forEach((id) => delete localSounds[id]);
       if (parsed?.format === "perfect-day-backup" && parsed.localSounds && typeof parsed.localSounds === "object") {
         Object.assign(localSounds, parsed.localSounds);
@@ -1172,7 +1355,8 @@ function resetData() {
   Object.assign(state, {
     habits: typeof structuredClone === "function" ? structuredClone(defaultHabits) : JSON.parse(JSON.stringify(defaultHabits)),
     entries: {},
-    createdAt: todayKey()
+    createdAt: todayKey(),
+    fasting: normalizeFasting()
   });
   activeView = "today";
   saveState();
@@ -1319,6 +1503,7 @@ async function loadCloudState() {
     state.habits = data.data.habits;
     state.entries = data.data.entries || {};
     state.createdAt = data.data.createdAt || todayKey();
+    state.fasting = normalizeFasting(data.data.fasting);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     applyingCloudState = false;
     syncStatus = "Synced";
@@ -1672,9 +1857,13 @@ function resizeHabitImage(file) {
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("service-worker.js?v=8").catch((error) => console.warn("Service worker failed", error));
+    navigator.serviceWorker.register("service-worker.js?v=25").catch((error) => console.warn("Service worker failed", error));
   });
 }
+
+window.setInterval(() => {
+  if (activeView === "today" && normalizeFasting(state.fasting).active) renderSoon();
+}, 60000);
 
 render();
 initCloudSync();

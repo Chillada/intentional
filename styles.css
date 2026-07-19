@@ -215,10 +215,6 @@ svg {
 
 .fasting-heading {
   min-width: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
 }
 
 .fasting-copy .eyebrow {
@@ -239,25 +235,6 @@ svg {
   color: var(--muted);
   font-size: 0.88rem;
   font-weight: 700;
-}
-
-.fasting-clock {
-  min-width: 210px;
-  color: var(--muted);
-  font-size: clamp(2rem, 4.5vw, 3.35rem);
-  font-variant-numeric: tabular-nums;
-  font-weight: 850;
-  line-height: 1;
-  text-align: right;
-}
-
-.fasting-clock.running {
-  color: var(--sage-dark);
-}
-
-.fasting-card.complete .fasting-clock {
-  color: #9b6f12;
-  text-shadow: 0 0 22px rgba(230, 184, 92, 0.32);
 }
 
 .fasting-progress {
@@ -1427,14 +1404,6 @@ h2 {
     align-items: stretch;
   }
 
-  .fasting-heading {
-    align-items: flex-start;
-  }
-
-  .fasting-clock {
-    min-width: 190px;
-  }
-
   .hero-band {
     min-height: 260px;
     flex-direction: column;
@@ -1544,17 +1513,6 @@ h2 {
 
   .fasting-card {
     padding: 14px;
-  }
-
-  .fasting-heading {
-    display: grid;
-    gap: 16px;
-  }
-
-  .fasting-clock {
-    min-width: 0;
-    font-size: 2.5rem;
-    text-align: left;
   }
 
   .fasting-actions {

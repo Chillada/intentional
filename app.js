@@ -434,12 +434,9 @@ function fastingPanelMarkup() {
     <section class="fasting-card ${fast.active ? "active" : ""} ${fast.complete ? "complete" : ""}">
       <div class="fasting-heading">
         <div class="fasting-copy">
-        <p class="eyebrow">Fasting</p>
+          <p class="eyebrow">Fasting</p>
           <h2 data-fasting-status>${statusCopy}</h2>
           <span data-fasting-target>Target ${fast.targetLabel}</span>
-        </div>
-        <div class="fasting-clock ${fast.active ? "running" : ""}" data-fasting-clock aria-label="Elapsed fasting time">
-          ${fast.clockLabel}
         </div>
       </div>
       <div class="fasting-progress" data-fasting-progress aria-label="${fast.percent}% fasting target complete">
@@ -487,17 +484,8 @@ function fastingStatus(now = new Date()) {
     elapsedSeconds,
     elapsedMinutes,
     percent,
-    targetLabel: durationLabel(targetSeconds / 60),
-    clockLabel: formatFastingClock(elapsedSeconds)
+    targetLabel: durationLabel(targetSeconds / 60)
   };
-}
-
-function formatFastingClock(totalSeconds) {
-  const cleanSeconds = Math.max(0, Math.floor(Number(totalSeconds || 0)));
-  const hours = Math.floor(cleanSeconds / 3600);
-  const minutes = Math.floor((cleanSeconds % 3600) / 60);
-  const seconds = cleanSeconds % 60;
-  return [hours, minutes, seconds].map((part) => String(part).padStart(2, "0")).join(":");
 }
 
 function updateFastingTicker() {
@@ -507,7 +495,6 @@ function updateFastingTicker() {
   const fast = fastingStatus();
   const status = fast.complete ? "Fast complete. Golden hour." : "Fast in progress. Steady does it.";
   card.classList.toggle("complete", fast.complete);
-  card.querySelector("[data-fasting-clock]").textContent = fast.clockLabel;
   card.querySelector("[data-fasting-status]").textContent = status;
   card.querySelector("[data-fasting-percent]").textContent = `${fast.percent}%`;
   card.querySelector("[data-fasting-meter]").style.width = `${fast.percent}%`;
@@ -1891,7 +1878,7 @@ function resizeHabitImage(file) {
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("service-worker.js?v=26").catch((error) => console.warn("Service worker failed", error));
+    navigator.serviceWorker.register("service-worker.js?v=27").catch((error) => console.warn("Service worker failed", error));
   });
 }
 

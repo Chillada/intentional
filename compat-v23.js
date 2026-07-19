@@ -203,7 +203,6 @@ statsView = function () {
         <span><i class="perfect"></i>Perfect</span>
       </div>
     </section>
-    ${fastingHistoryMarkup()}
   `;
 };
 

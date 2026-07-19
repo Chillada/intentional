@@ -381,8 +381,6 @@ function todayView() {
   const percent = dailyHabits.length ? Math.round((completed / dailyHabits.length) * 100) : 0;
 
   return `
-    ${fastingPanelMarkup()}
-
     <section class="hero-band">
       <div>
         <p class="eyebrow">Today</p>
@@ -751,7 +749,6 @@ function statsView() {
       </div>
     </section>
 
-    ${fastingHistoryMarkup()}
   `;
 }
 
@@ -822,12 +819,55 @@ function monthDayMarkup(dateKey) {
   `;
 }
 
-function toggleHistoryDay(dateKey) {
+function openHistoryDayDialog(dateKey) {
   if (dateKey < state.createdAt || dateKey > todayKey()) return;
+  const currentPercent = dailyScore(dateKey).percent;
+  const dialog = document.createElement("dialog");
+  dialog.className = "confirm-dialog history-percent-dialog";
+  dialog.innerHTML = `
+    <form class="dialog-form">
+      <p class="eyebrow">Daily score</p>
+      <h2>${escapeHtml(formatDate(dateKey))}</h2>
+      <div class="history-percent-value"><output data-history-percent-output>${currentPercent}%</output></div>
+      <input class="history-percent-range" type="range" min="0" max="100" step="1" value="${currentPercent}" data-history-percent-range aria-label="Completion percentage" />
+      <div class="history-percent-presets" aria-label="Quick percentages">
+        ${[0, 25, 50, 75, 100].map((value) => `<button type="button" data-history-percent-preset="${value}">${value}%</button>`).join("")}
+      </div>
+      <p>The saved score will use the closest match available from your daily targets.</p>
+      <menu class="dialog-actions">
+        <button type="button" class="secondary-action" data-history-percent-cancel>Cancel</button>
+        <button type="submit" class="primary-action">Save score</button>
+      </menu>
+    </form>
+  `;
+  document.body.append(dialog);
+  dialog.showModal();
+
+  const range = dialog.querySelector("[data-history-percent-range]");
+  const output = dialog.querySelector("[data-history-percent-output]");
+  const showValue = (value) => {
+    range.value = value;
+    output.value = `${value}%`;
+  };
+  range.addEventListener("input", () => showValue(range.value));
+  dialog.querySelectorAll("[data-history-percent-preset]").forEach((button) => {
+    button.addEventListener("click", () => showValue(button.dataset.historyPercentPreset));
+  });
+  dialog.querySelector("[data-history-percent-cancel]").addEventListener("click", () => dialog.close());
+  dialog.querySelector("form").addEventListener("submit", (event) => {
+    event.preventDefault();
+    setHistoryDayPercent(dateKey, Number(range.value));
+    dialog.close();
+  });
+  dialog.addEventListener("close", () => dialog.remove());
+}
+
+function setHistoryDayPercent(dateKey, percent) {
   const habits = activeHabits("daily");
-  const makePerfect = !isPerfectDay(dateKey);
-  habits.forEach((habit) => {
-    entryFor(dateKey)[habit.id] = makePerfect ? (habit.type === "number" ? Number(habit.goal || 1) : 1) : 0;
+  const desiredComplete = Math.round((Math.min(100, Math.max(0, percent)) / 100) * habits.length);
+  const completionFirst = [...habits].sort((a, b) => Number(isHabitComplete(b, [dateKey])) - Number(isHabitComplete(a, [dateKey])));
+  completionFirst.forEach((habit, index) => {
+    entryFor(dateKey)[habit.id] = index < desiredComplete ? (habit.type === "number" ? Number(habit.goal || 1) : 1) : 0;
   });
   saveState();
   render();
@@ -873,17 +913,6 @@ function settingsView() {
       <label class="field">
         <span>Start date</span>
         <input type="date" max="${todayKey()}" value="${escapeAttr(state.createdAt)}" data-action="start-date" />
-      </label>
-    </section>
-
-    <section class="panel fasting-settings-panel">
-      <div>
-        <h2>Fasting timer</h2>
-        <p>Choose the target for the main-page fasting switch.</p>
-      </div>
-      <label class="field">
-        <span>Target hours</span>
-        <input type="number" min="1" max="168" step="1" value="${Number(state.fasting?.targetHours || DEFAULT_FASTING.targetHours)}" data-action="fasting-target" />
       </label>
     </section>
 
@@ -1060,7 +1089,7 @@ function bindView() {
     if (action === "toggle-fasting") element.addEventListener("click", toggleFasting);
     if (action === "sync-sign-out") element.addEventListener("click", signOutOfSync);
     if (action === "sync-setup-link") element.addEventListener("click", sendSyncSetupLink);
-    if (action === "toggle-history-day") element.addEventListener("click", () => toggleHistoryDay(element.dataset.date));
+    if (action === "toggle-history-day") element.addEventListener("click", () => openHistoryDayDialog(element.dataset.date));
   });
 
   const syncForm = document.querySelector("[data-sync-form]");
@@ -1878,11 +1907,9 @@ function resizeHabitImage(file) {
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("service-worker.js?v=27").catch((error) => console.warn("Service worker failed", error));
+    navigator.serviceWorker.register("service-worker.js?v=28").catch((error) => console.warn("Service worker failed", error));
   });
 }
-
-window.setInterval(updateFastingTicker, 1000);
 
 render();
 initCloudSync();

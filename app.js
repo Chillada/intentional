@@ -39,6 +39,8 @@ const icons = {
   week: '<svg viewBox="0 0 24 24"><path d="M4 19V5M20 19V5M8 19V8M16 19V10M12 19V3"/></svg>',
   stats: '<svg viewBox="0 0 24 24"><path d="M4 19h16M7 16V9M12 16V5M17 16v-3"/></svg>',
   settings: '<svg viewBox="0 0 24 24"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1A2 2 0 1 1 4.2 17l.1-.1A1.7 1.7 0 0 0 4.6 15 1.7 1.7 0 0 0 3 14H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1A2 2 0 1 1 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6 1.7 1.7 0 0 0 10 3V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1A2 2 0 1 1 19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg>',
+  pickle: '<svg viewBox="0 0 24 24"><path d="M6 3h12v18H6z"/><path d="M9 7h6M9 11h6M9 15h4"/></svg>',
+  locker: '<svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M9 3v18M14 12h1"/></svg>',
   plus: '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
   up: '<svg viewBox="0 0 24 24"><path d="m6 15 6-6 6 6"/></svg>',
   down: '<svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>',
@@ -411,6 +413,8 @@ function brandMarkup() {
 function navMarkup(prefix) {
   const items = [
     ["today", "Today"],
+    ["pickle", "Pickle"],
+    ["locker", "Locker"],
     ["stats", "Stats"],
     ["settings", "Settings"]
   ];
@@ -424,9 +428,27 @@ function navMarkup(prefix) {
 }
 
 function viewMarkup() {
+  if (activeView === "pickle") return embeddedAppView("Pickle", "Your list randomiser", "/list-randomiser/");
+  if (activeView === "locker") return embeddedAppView("Locker", "Your locker and parking tracker", "/locker-tracker/");
   if (activeView === "stats") return statsView();
   if (activeView === "settings") return settingsView();
   return todayView();
+}
+
+function embeddedAppView(name, description, src) {
+  return `
+    <section class="embedded-app-shell">
+      <div class="embedded-app-heading">
+        <div>
+          <p class="eyebrow">Intentional</p>
+          <h1>${name}</h1>
+          <p>${description}</p>
+        </div>
+        <a class="secondary-action" href="${src}" target="_blank" rel="noopener">Open full screen</a>
+      </div>
+      <iframe class="embedded-app-frame" src="${src}" title="${name}" loading="eager"></iframe>
+    </section>
+  `;
 }
 
 function todayView() {

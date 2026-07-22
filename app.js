@@ -829,6 +829,8 @@ function statsView() {
       ${statTile("Tracked days", range.length, "days")}
     </section>
 
+    ${sharedInsightsMarkup()}
+
     ${fastingHistoryMarkup()}
 
     <section class="panel">
@@ -848,7 +850,12 @@ function statsView() {
       </div>
     </section>
 
-    <section class="shared-insights">
+  `;
+}
+
+function sharedInsightsMarkup() {
+  return `
+    <section class="shared-insights panel">
       <div class="section-heading compact-heading">
         <div>
           <p class="eyebrow">Across Intentional</p>
@@ -864,7 +871,6 @@ function statsView() {
         <iframe class="embedded-app-frame insight-frame" src="/locker-tracker/" title="Locker insights" loading="lazy" data-embedded-app="locker-insights"></iframe>
       </details>
     </section>
-
   `;
 }
 
@@ -2149,7 +2155,7 @@ function resizeHabitImage(file) {
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-  navigator.serviceWorker.register("service-worker.js?v=33").catch((error) => console.warn("Service worker failed", error));
+  navigator.serviceWorker.register("service-worker.js?v=34").catch((error) => console.warn("Service worker failed", error));
   });
 }
 

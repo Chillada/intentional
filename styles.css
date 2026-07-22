@@ -1616,7 +1616,7 @@ h2 {
 .shared-insights {
   display: grid;
   gap: 10px;
-  margin-top: 22px;
+  margin-top: 0;
 }
 
 .compact-heading {

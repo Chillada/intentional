@@ -844,7 +844,7 @@ function fastingHistoryMarkup() {
             <small>${hasLog ? `${formatStopwatch(log.seconds)} / ${durationLabel(log.targetHours * 60)}` : "No fast logged"}</small>
           </span>
           <em>${hasLog ? (log.hit ? "Target hit" : "Below target") : "Skipped"}</em>
-          <input type="text" inputmode="numeric" pattern="[0-9]{2,3}:[0-9]{2}:[0-9]{2}" value="${formatStopwatch(log.seconds)}" data-action="fasting-log" data-date="${dateKey}" aria-label="${escapeAttr(`Fast duration for ${formatDate(dateKey)}`)}" />
+          ${fastingDurationPicker(log.seconds, dateKey)}
         </label>
       `;
     })
@@ -858,6 +858,24 @@ function fastingHistoryMarkup() {
       </div>
       <div class="fasting-history-list">${rows}</div>
     </section>
+  `;
+}
+
+function fastingDurationPicker(totalSeconds, dateKey) {
+  const clean = Math.max(0, Math.floor(Number(totalSeconds || 0)));
+  const hours = Math.min(72, Math.floor(clean / 3600));
+  const rawMinutes = Math.floor((clean % 3600) / 60);
+  const minutes = [0, 15, 30, 45].reduce((closest, value) =>
+    Math.abs(value - rawMinutes) < Math.abs(closest - rawMinutes) ? value : closest
+  , 0);
+  const optionList = (maximum, selected) =>
+    Array.from({ length: maximum + 1 }, (_, value) => `<option value="${value}" ${value === selected ? "selected" : ""}>${String(value).padStart(2, "0")}</option>`).join("");
+
+  return `
+    <div class="fasting-duration-picker" data-date="${dateKey}" aria-label="${escapeAttr(`Fast duration for ${formatDate(dateKey)}`)}">
+      <label>Hours<select data-action="fasting-duration-part" data-part="hours" aria-label="Hours">${optionList(72, hours)}</select></label>
+      <label>Minutes<select data-action="fasting-duration-part" data-part="minutes" aria-label="Minutes">${[0, 15, 30, 45].map((value) => `<option value="${value}" ${value === minutes ? "selected" : ""}>${String(value).padStart(2, "0")}</option>`).join("")}</select></label>
+    </div>
   `;
 }
 
@@ -1197,18 +1215,12 @@ function bindView() {
         render();
       });
     }
-    if (action === "fasting-log") {
-      element.addEventListener("input", () => {
-        const seconds = parseStopwatch(element.value);
-        if (seconds !== null) setFastingLog(element.dataset.date, seconds);
-      });
+    if (action === "fasting-duration-part") {
       element.addEventListener("change", () => {
-        const seconds = parseStopwatch(element.value);
-        if (seconds === null) {
-          window.alert("Use hh:mm:ss, for example 16:30:00.");
-          return;
-        }
-        setFastingLog(element.dataset.date, seconds);
+        const picker = element.closest(".fasting-duration-picker");
+        const getPart = (part) => Number(picker.querySelector(`[data-part="${part}"]`).value || 0);
+        const seconds = getPart("hours") * 3600 + getPart("minutes") * 60;
+        setFastingLog(picker.dataset.date, seconds);
         render();
       });
     }

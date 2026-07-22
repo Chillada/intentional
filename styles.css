@@ -391,12 +391,32 @@ svg {
   font-weight: 700;
 }
 
-.fasting-history-row input {
+.fasting-duration-picker {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.fasting-duration-picker label {
+  display: grid;
+  gap: 3px;
+  color: var(--muted);
+  font-size: 0.62rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.fasting-duration-picker select {
   width: 100%;
   min-height: 38px;
-  padding: 0 9px;
+  padding: 0 3px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 800;
 }
 
 .eyebrow {
@@ -1760,7 +1780,7 @@ h2 {
     text-align: right;
   }
 
-  .fasting-history-row input {
+  .fasting-duration-picker {
     grid-column: 1 / -1;
   }
 

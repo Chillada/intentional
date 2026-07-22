@@ -1331,21 +1331,8 @@ function prepareEmbeddedApp(frame) {
     }
 
     doc.head.append(style);
-    const resize = () => resizeEmbeddedApp(frame);
-    requestAnimationFrame(() => requestAnimationFrame(resize));
-    new ResizeObserver(resize).observe(doc.body);
   } catch (error) {
     console.warn("Embedded app could not be prepared", error);
-  }
-}
-
-function resizeEmbeddedApp(frame) {
-  try {
-    const doc = frame.contentDocument;
-    const height = Math.max(doc.body.scrollHeight, doc.documentElement.scrollHeight);
-    frame.style.height = `${Math.max(360, height + 4)}px`;
-  } catch (error) {
-    // The iframe keeps its CSS fallback height if the browser blocks measurement.
   }
 }
 
@@ -2162,7 +2149,7 @@ function resizeHabitImage(file) {
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-  navigator.serviceWorker.register("service-worker.js?v=32").catch((error) => console.warn("Service worker failed", error));
+  navigator.serviceWorker.register("service-worker.js?v=33").catch((error) => console.warn("Service worker failed", error));
   });
 }
 

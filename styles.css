@@ -1606,6 +1606,7 @@ h2 {
 .embedded-app-frame {
   display: block;
   width: 100%;
+  height: calc(100dvh - 172px);
   min-height: 520px;
   border: 0;
   border-radius: 0;
@@ -1637,6 +1638,7 @@ h2 {
 }
 
 .insight-frame {
+  height: min(620px, 70dvh);
   min-height: 360px;
   border-top: 1px solid var(--line);
 }
@@ -1789,7 +1791,13 @@ h2 {
   }
 
   .embedded-app-frame {
-    min-height: 540px;
+    height: calc(100dvh - 154px);
+    min-height: 430px;
+  }
+
+  .insight-frame {
+    height: min(560px, 66dvh);
+    min-height: 360px;
   }
 }
 

@@ -54,6 +54,7 @@ function loadState() {
       return {
         habits: parsed.habits,
         entries: parsed.entries || {},
+        dailyOutcomes: parsed.dailyOutcomes || {},
         createdAt: parsed.createdAt || todayKey(),
         fasting: normalizeFasting(parsed.fasting)
       };
@@ -65,6 +66,7 @@ function loadState() {
   return {
     habits: defaultHabits,
     entries: {},
+    dailyOutcomes: {},
     createdAt: todayKey(),
     fasting: normalizeFasting()
   };
@@ -215,11 +217,27 @@ function hasValue(dateKey, habitId) {
   return Object.prototype.hasOwnProperty.call(state.entries[dateKey] || {}, habitId);
 }
 
+function isCircumstance(dateKey, habitId) {
+  return state.dailyOutcomes?.[dateKey]?.[habitId] === "circumstance";
+}
+
+function setCircumstance(dateKey, habitId, active) {
+  state.dailyOutcomes ||= {};
+  if (active) {
+    state.dailyOutcomes[dateKey] ||= {};
+    state.dailyOutcomes[dateKey][habitId] = "circumstance";
+  } else if (state.dailyOutcomes[dateKey]) {
+    delete state.dailyOutcomes[dateKey][habitId];
+    if (Object.keys(state.dailyOutcomes[dateKey]).length === 0) delete state.dailyOutcomes[dateKey];
+  }
+}
+
 function setValue(dateKey, habitId, value) {
   const habit = findHabit(habitId);
   const wasPerfect = isPerfectDay(dateKey);
   const wasComplete = habit ? isHabitComplete(habit, periodDates(habit.frequency, dateKey)) : false;
   entryFor(dateKey)[habitId] = value;
+  setCircumstance(dateKey, habitId, false);
   saveState();
   const becamePerfect = !wasPerfect && isPerfectDay(dateKey);
   const becameComplete = habit && !wasComplete && isHabitComplete(habit, periodDates(habit.frequency, dateKey));
@@ -255,8 +273,10 @@ function dayOutcome(dateKey) {
     if (habit.type === "check") {
       if (!hasValue(dateKey, habit.id)) return dateKey === todayKey() ? "open" : "no";
       const value = Number(getValue(dateKey, habit.id));
-      if (value === 2) hasCircumstance = true;
+      if (value === 2 || isCircumstance(dateKey, habit.id)) hasCircumstance = true;
       else if (value !== 1) return "no";
+    } else if (isCircumstance(dateKey, habit.id)) {
+      hasCircumstance = true;
     } else if (!isHabitComplete(habit, [dateKey])) {
       if (!hasValue(dateKey, habit.id) && dateKey === todayKey()) return "open";
       return "no";
@@ -268,8 +288,8 @@ function dayOutcome(dateKey) {
 function dailyScore(dateKey = todayKey()) {
   const habits = activeHabits("daily");
   if (!habits.length) return { complete: 0, circumstance: 0, total: 0, percent: 0 };
-  const complete = habits.filter((habit) => isHabitComplete(habit, [dateKey])).length;
-  const circumstance = habits.filter((habit) => habit.type === "check" && Number(getValue(dateKey, habit.id)) === 2).length;
+  const complete = habits.filter((habit) => !isCircumstance(dateKey, habit.id) && isHabitComplete(habit, [dateKey])).length;
+  const circumstance = habits.filter((habit) => isCircumstance(dateKey, habit.id) || (habit.type === "check" && Number(getValue(dateKey, habit.id)) === 2)).length;
   const opportunityCount = habits.length - circumstance;
   return {
     complete,
@@ -430,28 +450,26 @@ function todayView() {
       </div>
     </section>
 
-    ${fastingPanelMarkup()}
-
     <section class="philosophy-strip" aria-label="Compass philosophy">
       <p><strong>“Doing the best you can, where you are, with what you have got.”</strong> <span>Phil Neville</span></p>
       <p><strong>“Never miss twice.”</strong> <span>James Clear</span></p>
     </section>
 
-    <section class="content-grid">
-      <div class="panel">
+    <section class="panel daily-targets-panel">
         <div class="panel-heading">
           <h2>Daily targets</h2>
           <span>${formatDate(dateKey, "short")}</span>
         </div>
-        <div class="habit-list">
+        <div class="habit-list daily-habit-grid">
           ${
             dailyHabits.length
               ? dailyHabits.map((habit) => dailyHabitMarkup(habit, dateKey)).join("")
               : `<p class="empty">No active daily targets.</p>`
           }
         </div>
-      </div>
+    </section>
 
+    <section class="long-term-section">
       <div class="panel accent-panel long-term-panel">
         <div class="panel-heading">
           <h2>Longer-term targets</h2>
@@ -526,7 +544,7 @@ function fastingStatus(now = new Date()) {
 }
 
 function updateFastingTicker() {
-  if (activeView !== "today") return;
+  if (activeView !== "stats") return;
   const card = document.querySelector(".fasting-card");
   if (!card || !normalizeFasting(state.fasting).active) return;
   const fast = fastingStatus();
@@ -570,8 +588,9 @@ function dailyHabitMarkup(habit, dateKey) {
   const complete = isHabitComplete(habit, [dateKey]);
   const color = habitColor(habit);
   if (habit.type === "number") {
+    const circumstance = isCircumstance(dateKey, habit.id);
     return `
-      <div class="habit-row daily-number-row ${complete ? "done" : ""}" style="--habit-color:${color}">
+      <div class="habit-row daily-number-row ${complete ? "done" : ""} ${circumstance ? "outcome-circumstance" : ""}" style="--habit-color:${color}">
         ${habitImageMarkup(habit)}
         <div class="daily-number-copy">
           <strong>${escapeHtml(habit.name)}</strong>
@@ -586,8 +605,10 @@ function dailyHabitMarkup(habit, dateKey) {
           data-action="number-entry"
           data-date="${dateKey}"
           data-habit="${habit.id}"
+          ${circumstance ? "disabled" : ""}
           value="${Number(getValue(dateKey, habit.id) || 0)}"
         />
+        ${habit.allowCircumstance === false ? "" : `<button class="daily-number-circumstance ${circumstance ? "active" : ""}" data-action="daily-number-circumstance" data-date="${dateKey}" data-habit="${habit.id}">Circumstance</button>`}
       </div>
     `;
   }
@@ -598,7 +619,7 @@ function dailyHabitMarkup(habit, dateKey) {
     <div class="habit-row daily-outcome-row outcome-${outcome}" style="--habit-color:${color}">
       <div class="daily-outcome-name">${habitImageMarkup(habit)}<span>${escapeHtml(habit.name)}</span></div>
       <div class="daily-outcome-options" aria-label="${escapeAttr(`${habit.name} outcome`)}">
-        ${[[1, "Yes"], [2, "Circumstance"], [0, "No"]].map(([optionValue, label]) => `<button class="${value === optionValue ? "active" : ""}" data-action="daily-outcome" data-date="${dateKey}" data-habit="${habit.id}" data-value="${optionValue}">${label}</button>`).join("")}
+        ${[[1, "Yes"], ...(habit.allowCircumstance === false ? [] : [[2, "Circumstance"]]), [0, "No"]].map(([optionValue, label]) => `<button class="${outcome === (optionValue === 1 ? "yes" : optionValue === 2 ? "circumstance" : "no") ? "active" : ""}" data-action="daily-outcome" data-date="${dateKey}" data-habit="${habit.id}" data-value="${optionValue}">${label}</button>`).join("")}
       </div>
     </div>
   `;
@@ -785,6 +806,11 @@ function statsView() {
       ${statTile("Best streak", bestStreak(), "days")}
       ${statTile("Aligned days", perfectDayCount(), "total")}
       ${statTile("Tracked days", range.length, "days")}
+    </section>
+
+    <section class="stats-fasting">
+      ${fastingPanelMarkup()}
+      ${fastingHistoryMarkup()}
     </section>
 
     <section class="panel">
@@ -1087,7 +1113,29 @@ function bindView() {
     }
 
     if (action === "daily-outcome") {
-      element.addEventListener("click", () => setValue(element.dataset.date, element.dataset.habit, Number(element.dataset.value)));
+      element.addEventListener("click", () => {
+        const dateKey = element.dataset.date;
+        const habitId = element.dataset.habit;
+        const value = Number(element.dataset.value);
+        if (hasValue(dateKey, habitId) && Number(getValue(dateKey, habitId)) === value) {
+          delete state.entries[dateKey][habitId];
+          if (Object.keys(state.entries[dateKey]).length === 0) delete state.entries[dateKey];
+          saveState();
+          render();
+          return;
+        }
+        setValue(dateKey, habitId, value);
+      });
+    }
+
+    if (action === "daily-number-circumstance") {
+      element.addEventListener("click", () => {
+        const dateKey = element.dataset.date;
+        const habitId = element.dataset.habit;
+        setCircumstance(dateKey, habitId, !isCircumstance(dateKey, habitId));
+        saveState();
+        render();
+      });
     }
 
     if (action === "weekly-check" || action === "period-check") {
@@ -1111,6 +1159,7 @@ function bindView() {
       const saveNumber = () => {
         const value = Math.max(0, Number(element.value || 0));
         entryFor(element.dataset.date)[element.dataset.habit] = value;
+        setCircumstance(element.dataset.date, element.dataset.habit, false);
         saveState();
         if (habit) {
           const complete = isHabitComplete(habit, periodDates(habit.frequency));
@@ -1271,6 +1320,10 @@ function openHabitDialog(habit = null) {
           <input name="unit" maxlength="18" value="${escapeAttr(habit?.unit || "")}" />
         </label>
       </div>
+      <label class="toggle-line circumstance-setting">
+        <input name="allowCircumstance" type="checkbox" ${habit?.allowCircumstance !== false ? "checked" : ""} />
+        <span>Offer Circumstance</span>
+      </label>
       <label class="field color-field">
         <span>Target colour</span>
         <input name="color" type="color" value="${escapeAttr(habitColor(habit))}" />
@@ -1333,6 +1386,7 @@ function openHabitDialog(habit = null) {
       enabled: habit?.enabled ?? true,
       image: habit?.image || "",
       sound: form.get("sound").toString(),
+      allowCircumstance: form.get("allowCircumstance") === "on",
       color: form.get("color").toString()
     };
 
@@ -1441,6 +1495,7 @@ function importData(event) {
       }
       state.habits = importedState.habits;
       state.entries = importedState.entries || {};
+      state.dailyOutcomes = importedState.dailyOutcomes || {};
       state.createdAt = importedState.createdAt || todayKey();
       state.fasting = normalizeFasting(importedState.fasting);
       Object.keys(localSounds).forEach((id) => delete localSounds[id]);
@@ -1486,6 +1541,7 @@ function resetData() {
   Object.assign(state, {
     habits: typeof structuredClone === "function" ? structuredClone(defaultHabits) : JSON.parse(JSON.stringify(defaultHabits)),
     entries: {},
+    dailyOutcomes: {},
     createdAt: todayKey(),
     fasting: normalizeFasting()
   });
@@ -1633,6 +1689,7 @@ async function loadCloudState() {
     applyingCloudState = true;
     state.habits = data.data.habits;
     state.entries = data.data.entries || {};
+    state.dailyOutcomes = data.data.dailyOutcomes || {};
     state.createdAt = data.data.createdAt || todayKey();
     state.fasting = normalizeFasting(data.data.fasting);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));

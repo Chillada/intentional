@@ -173,8 +173,8 @@ svg {
 }
 
 .hero-band {
-  min-height: 212px;
-  padding: clamp(22px, 5vw, 42px);
+  min-height: 142px;
+  padding: clamp(18px, 3vw, 28px);
   border-radius: 8px;
   background:
     linear-gradient(135deg, rgba(15, 84, 57, 0.97), rgba(43, 139, 98, 0.94)),
@@ -486,6 +486,33 @@ h2 {
   gap: 18px;
 }
 
+.daily-targets-panel {
+  margin-bottom: 18px;
+}
+
+.daily-habit-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.long-term-section .panel {
+  width: 100%;
+}
+
+.stats-fasting {
+  display: grid;
+  grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+  gap: 18px;
+  align-items: start;
+  margin-bottom: 18px;
+}
+
+.stats-fasting .fasting-card,
+.stats-fasting .fasting-history-panel {
+  margin-bottom: 0;
+}
+
 .long-term-panel {
   display: grid;
   align-content: start;
@@ -685,22 +712,41 @@ h2 {
 
 .daily-number-row {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) 112px;
+  grid-template-columns: auto minmax(0, 1fr) 92px auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.daily-number-circumstance {
+  min-height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.daily-number-circumstance.active {
+  border-color: #d5a62f;
+  background: rgba(255, 209, 102, 0.3);
+  color: #76570b;
 }
 
 .daily-outcome-row {
-  min-height: 72px;
+  min-height: 58px;
   display: grid;
-  grid-template-columns: minmax(140px, 1fr) minmax(270px, auto);
-  gap: 14px;
-  padding-block: 9px;
+  grid-template-columns: minmax(100px, 1fr) minmax(188px, auto);
+  gap: 8px;
+  padding: 7px 9px;
 }
 
 .daily-outcome-name {
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   font-weight: 700;
 }
 
@@ -711,13 +757,13 @@ h2 {
 }
 
 .daily-outcome-options button {
-  min-height: 38px;
-  padding: 0 10px;
+  min-height: 32px;
+  padding: 0 7px;
   border: 1px solid var(--line);
   border-radius: 6px;
   background: #fff;
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   font-weight: 800;
 }
 
@@ -1556,8 +1602,7 @@ h2 {
   }
 
   .hero-band {
-    min-height: 260px;
-    flex-direction: column;
+    min-height: 124px;
   }
 
   .section-heading {
@@ -1565,7 +1610,12 @@ h2 {
   }
 
   .content-grid,
-  .stat-grid {
+  .stat-grid,
+  .stats-fasting {
+    grid-template-columns: 1fr;
+  }
+
+  .daily-habit-grid {
     grid-template-columns: 1fr;
   }
 
@@ -1655,7 +1705,7 @@ h2 {
   }
 
   .hero-band {
-    padding: 22px;
+    padding: 18px;
   }
 
   .philosophy-strip {
@@ -1666,6 +1716,15 @@ h2 {
 
   .daily-outcome-row {
     grid-template-columns: 1fr;
+    min-height: 0;
+  }
+
+  .daily-number-row {
+    grid-template-columns: auto minmax(0, 1fr) 82px;
+  }
+
+  .daily-number-row .daily-number-circumstance {
+    grid-column: 1 / -1;
   }
 
   .daily-outcome-options {

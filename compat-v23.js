@@ -188,6 +188,10 @@ statsView = function () {
       ${statTile("Tracked days", range.length, "days")}
       ${statTile("Average completion", averageDailyCompletion(range), "%")}
     </section>
+    <section class="stats-fasting">
+      ${fastingPanelMarkup()}
+      ${fastingHistoryMarkup()}
+    </section>
     <section class="panel">
       <div class="panel-heading">
         <h2>${month.label}</h2>
@@ -206,7 +210,6 @@ statsView = function () {
         <span><i class="aligned"></i>Aligned</span>
       </div>
     </section>
-    ${fastingHistoryMarkup()}
   `;
 };
 

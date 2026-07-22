@@ -829,8 +829,6 @@ function statsView() {
       ${statTile("Tracked days", range.length, "days")}
     </section>
 
-    ${sharedInsightsMarkup()}
-
     ${fastingHistoryMarkup()}
 
     <section class="panel">
@@ -849,6 +847,8 @@ function statsView() {
         <span><i class="perfect"></i>Perfect</span>
       </div>
     </section>
+
+    ${sharedInsightsMarkup()}
 
   `;
 }
@@ -1324,9 +1324,7 @@ function prepareEmbeddedApp(frame) {
     }
 
     if (app.startsWith("locker")) {
-      const destination = app === "locker-insights" ? "Insights" : "Home";
-      const button = [...doc.querySelectorAll("button")].find((item) => item.textContent.trim() === destination);
-      button?.click();
+      if (app === "locker-insights") openLockerInsights(doc);
       style.textContent = `
         .sidebar, .topbar, .mobile-nav, .privacy-note { display: none !important; }
         .app-shell, .main { min-height: 0 !important; width: 100% !important; }
@@ -1340,6 +1338,13 @@ function prepareEmbeddedApp(frame) {
   } catch (error) {
     console.warn("Embedded app could not be prepared", error);
   }
+}
+
+function openLockerInsights(doc, attempt = 0) {
+  if (doc.querySelector(".insights-page") || attempt >= 12) return;
+  const button = [...doc.querySelectorAll("button")].find((item) => item.textContent.trim() === "Insights");
+  button?.click();
+  doc.defaultView.setTimeout(() => openLockerInsights(doc, attempt + 1), 200);
 }
 
 let renderTimer = 0;
@@ -2155,7 +2160,7 @@ function resizeHabitImage(file) {
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-  navigator.serviceWorker.register("service-worker.js?v=35").catch((error) => console.warn("Service worker failed", error));
+  navigator.serviceWorker.register("service-worker.js?v=36").catch((error) => console.warn("Service worker failed", error));
   });
 }
 

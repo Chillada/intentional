@@ -412,7 +412,7 @@ function brandMarkup() {
 
 function navMarkup(prefix) {
   const items = [
-    ["today", "Today"],
+    ["today", "Compass"],
     ["pickle", "Pickle"],
     ["locker", "Locker"],
     ["stats", "Stats"],
@@ -436,17 +436,16 @@ function viewMarkup() {
 }
 
 function embeddedAppView(name, description, src) {
+  const app = name.toLowerCase();
   return `
     <section class="embedded-app-shell">
       <div class="embedded-app-heading">
         <div>
-          <p class="eyebrow">Intentional</p>
           <h1>${name}</h1>
           <p>${description}</p>
         </div>
-        <a class="secondary-action" href="${src}" target="_blank" rel="noopener">Open full screen</a>
       </div>
-      <iframe class="embedded-app-frame" src="${src}" title="${name}" loading="eager"></iframe>
+      <iframe class="embedded-app-frame" src="${src}" title="${name}" loading="eager" data-embedded-app="${app}"></iframe>
     </section>
   `;
 }
@@ -849,6 +848,23 @@ function statsView() {
       </div>
     </section>
 
+    <section class="shared-insights">
+      <div class="section-heading compact-heading">
+        <div>
+          <p class="eyebrow">Across Intentional</p>
+          <h2>App insights</h2>
+        </div>
+      </div>
+      <details class="insight-drawer">
+        <summary>Pickle stats</summary>
+        <iframe class="embedded-app-frame insight-frame" src="/list-randomiser/" title="Pickle stats" loading="lazy" data-embedded-app="pickle-stats"></iframe>
+      </details>
+      <details class="insight-drawer">
+        <summary>Locker insights</summary>
+        <iframe class="embedded-app-frame insight-frame" src="/locker-tracker/" title="Locker insights" loading="lazy" data-embedded-app="locker-insights"></iframe>
+      </details>
+    </section>
+
   `;
 }
 
@@ -1142,6 +1158,7 @@ function bindNav() {
 }
 
 function bindView() {
+  bindEmbeddedApps();
   document.querySelectorAll("[data-action]").forEach((element) => {
     const action = element.dataset.action;
 
@@ -1260,6 +1277,75 @@ function bindView() {
   const syncPasswordForm = document.querySelector("[data-sync-password-form]");
   if (syncPasswordForm) {
     syncPasswordForm.addEventListener("submit", setSyncPassword);
+  }
+}
+
+function bindEmbeddedApps() {
+  document.querySelectorAll("[data-embedded-app]").forEach((frame) => {
+    frame.addEventListener("load", () => prepareEmbeddedApp(frame));
+  });
+}
+
+function prepareEmbeddedApp(frame) {
+  try {
+    const doc = frame.contentDocument;
+    if (!doc?.head) return;
+    const app = frame.dataset.embeddedApp;
+    const style = doc.createElement("style");
+    style.dataset.intentionalShell = "true";
+
+    if (app.startsWith("pickle")) {
+      style.textContent = app === "pickle-stats"
+        ? `
+          .topbar, .sidebar, .category-header, .main-grid, .empty-state { display: none !important; }
+          .workspace { display: block !important; }
+          .content { padding: 0 !important; }
+          .stats-section { margin: 0 !important; }
+          body, .app-shell, main { min-height: 0 !important; background: transparent !important; }
+        `
+        : `
+          .topbar .brand, #history-button, .stats-section, .sync-panel { display: none !important; }
+          .topbar { min-height: 54px !important; padding: 8px 12px !important; justify-content: flex-end !important; }
+          main { min-height: 0 !important; }
+          @media (max-width: 760px) {
+            .workspace { display: block !important; }
+            .sidebar { border: 0 !important; padding: 10px 12px !important; }
+            .content { padding: 18px 12px 28px !important; }
+            .category-header { margin-bottom: 18px !important; align-items: flex-start !important; }
+            .category-header h1 { font-size: 32px !important; }
+          }
+        `;
+    }
+
+    if (app.startsWith("locker")) {
+      const destination = app === "locker-insights" ? "Insights" : "Home";
+      const button = [...doc.querySelectorAll("button")].find((item) => item.textContent.trim() === destination);
+      button?.click();
+      style.textContent = `
+        .sidebar, .topbar, .mobile-nav, .privacy-note { display: none !important; }
+        .app-shell, .main { min-height: 0 !important; width: 100% !important; }
+        .main { margin: 0 !important; }
+        .page { padding: 18px 12px 30px !important; }
+        @media (max-width: 760px) { .page { padding: 12px 4px 26px !important; } }
+      `;
+    }
+
+    doc.head.append(style);
+    const resize = () => resizeEmbeddedApp(frame);
+    requestAnimationFrame(() => requestAnimationFrame(resize));
+    new ResizeObserver(resize).observe(doc.body);
+  } catch (error) {
+    console.warn("Embedded app could not be prepared", error);
+  }
+}
+
+function resizeEmbeddedApp(frame) {
+  try {
+    const doc = frame.contentDocument;
+    const height = Math.max(doc.body.scrollHeight, doc.documentElement.scrollHeight);
+    frame.style.height = `${Math.max(360, height + 4)}px`;
+  } catch (error) {
+    // The iframe keeps its CSS fallback height if the browser blocks measurement.
   }
 }
 
@@ -2076,7 +2162,7 @@ function resizeHabitImage(file) {
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-  navigator.serviceWorker.register("service-worker.js?v=31").catch((error) => console.warn("Service worker failed", error));
+  navigator.serviceWorker.register("service-worker.js?v=32").catch((error) => console.warn("Service worker failed", error));
   });
 }
 

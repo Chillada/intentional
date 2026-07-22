@@ -78,8 +78,8 @@ function normalizeFasting(fasting = {}) {
   const logs = fasting.logs && typeof fasting.logs === "object" ? fasting.logs : {};
   return {
     targetHours,
-    active: Boolean(fasting.active && startedAt),
-    startedAt,
+    active: false,
+    startedAt: "",
     logs
   };
 }
@@ -808,10 +808,7 @@ function statsView() {
       ${statTile("Tracked days", range.length, "days")}
     </section>
 
-    <section class="stats-fasting">
-      ${fastingPanelMarkup()}
-      ${fastingHistoryMarkup()}
-    </section>
+    ${fastingHistoryMarkup()}
 
     <section class="panel">
       <div class="panel-heading">
@@ -2045,7 +2042,7 @@ function resizeHabitImage(file) {
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("service-worker.js?v=29").catch((error) => console.warn("Service worker failed", error));
+  navigator.serviceWorker.register("service-worker.js?v=29").catch((error) => console.warn("Service worker failed", error));
   });
 }
 

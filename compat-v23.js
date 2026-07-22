@@ -80,7 +80,7 @@ loadCloudState = async function () {
 
   if (error) {
     syncStatus = "Sync failed";
-    console.warn("Perfect Day sync failed", error);
+    console.warn("Compass sync failed", error);
     return;
   }
 
@@ -116,7 +116,7 @@ pushCloudState = async function () {
 
   if (error) {
     syncStatus = "Save failed";
-    console.warn("Perfect Day cloud save failed", error);
+    console.warn("Compass cloud save failed", error);
   } else {
     syncStatus = "Synced";
   }
@@ -141,7 +141,7 @@ monthCalendar = function (dateKey = todayKey()) {
     dates,
     leading: (first.getDay() + 6) % 7,
     label: current.toLocaleDateString(undefined, { month: "long", year: "numeric" }),
-    perfectCount: dates.filter((key) => key >= state.createdAt && key <= todayKey() && isPerfectDay(key)).length,
+    alignedCount: dates.filter((key) => key >= state.createdAt && key <= todayKey() && dayOutcome(key) === "yes").length,
     averagePercent: averageDailyCompletion(dates)
   };
 };
@@ -150,7 +150,9 @@ dayStory = function (dateKey) {
   if (dateKey < state.createdAt) return { status: "untracked", percent: 0 };
   if (dateKey > todayKey()) return { status: "future", percent: 0 };
   const score = dailyScore(dateKey);
-  if (score.percent === 100) return { status: "perfect", percent: 100 };
+  if (dayOutcome(dateKey) === "open") return { status: "partial", percent: score.percent };
+  if (dayOutcome(dateKey) === "circumstance") return { status: "circumstance", percent: score.percent };
+  if (score.percent === 100) return { status: "aligned", percent: 100 };
   return { status: score.percent > 0 ? "partial" : "missed", percent: score.percent };
 };
 
@@ -182,14 +184,14 @@ statsView = function () {
     <section class="stat-grid secondary-stats">
       ${statTile("Never miss twice", neverMissTwiceStreak(), "days")}
       ${statTile("Best streak", bestStreak(), "days")}
-      ${statTile("Perfect days", perfectDayCount(), "total")}
+      ${statTile("Aligned days", perfectDayCount(), "total")}
       ${statTile("Tracked days", range.length, "days")}
       ${statTile("Average completion", averageDailyCompletion(range), "%")}
     </section>
     <section class="panel">
       <div class="panel-heading">
         <h2>${month.label}</h2>
-        <span>${month.perfectCount} perfect days · ${month.averagePercent}% average</span>
+        <span>${month.alignedCount} aligned days · ${month.averagePercent}% average</span>
       </div>
       <div class="month-calendar">
         ${["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => `<span class="calendar-weekday">${day}</span>`).join("")}
@@ -200,11 +202,14 @@ statsView = function () {
         <span><i class="untracked"></i>Before start</span>
         <span><i class="missed"></i>Missed</span>
         <span><i class="partial"></i>In progress</span>
-        <span><i class="perfect"></i>Perfect</span>
+        <span><i class="circumstance"></i>Circumstance</span>
+        <span><i class="aligned"></i>Aligned</span>
       </div>
     </section>
+    ${fastingHistoryMarkup()}
   `;
 };
 
 perfectDayPrimeSounds();
 render();
+window.setInterval(updateFastingTicker, 1000);

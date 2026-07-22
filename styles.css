@@ -258,6 +258,12 @@ svg {
   color: var(--sage-dark);
 }
 
+.fasting-progress-copy .fasting-clock {
+  font-size: clamp(1.55rem, 4vw, 2.35rem);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
 .fasting-card.complete .fasting-progress strong {
   color: #9b6f12;
 }
@@ -289,10 +295,34 @@ svg {
 }
 
 .fasting-actions {
+  grid-column: 1 / -1;
   display: flex;
   align-items: end;
   justify-content: flex-end;
   gap: 12px;
+}
+
+.philosophy-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin: -6px 0 18px;
+  padding: 14px 18px;
+  border-left: 4px solid var(--gold);
+  background: rgba(255, 255, 255, 0.64);
+}
+
+.philosophy-strip p {
+  margin: 0;
+  color: var(--ink);
+  font-size: 0.88rem;
+}
+
+.philosophy-strip span {
+  margin-left: 5px;
+  color: var(--muted);
+  font-size: 0.78rem;
 }
 
 .fasting-log-field {
@@ -658,6 +688,67 @@ h2 {
   grid-template-columns: auto minmax(0, 1fr) 112px;
 }
 
+.daily-outcome-row {
+  min-height: 72px;
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) minmax(270px, auto);
+  gap: 14px;
+  padding-block: 9px;
+}
+
+.daily-outcome-name {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+}
+
+.daily-outcome-options {
+  display: grid;
+  grid-template-columns: 0.8fr 1.45fr 0.8fr;
+  gap: 5px;
+}
+
+.daily-outcome-options button {
+  min-height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.daily-outcome-options button[data-value="1"].active {
+  border-color: var(--sage);
+  background: rgba(139, 212, 80, 0.24);
+  color: var(--sage-dark);
+}
+
+.daily-outcome-options button[data-value="2"].active {
+  border-color: #d5a62f;
+  background: rgba(255, 209, 102, 0.3);
+  color: #76570b;
+}
+
+.daily-outcome-options button[data-value="0"].active {
+  border-color: var(--coral);
+  background: rgba(255, 127, 109, 0.18);
+  color: #8a3024;
+}
+
+.daily-outcome-row.outcome-yes {
+  border-color: rgba(69, 166, 107, 0.72);
+  background: linear-gradient(90deg, rgba(92, 196, 116, 0.22), rgba(226, 247, 225, 0.62));
+}
+
+.daily-outcome-row.outcome-circumstance {
+  border-color: rgba(230, 184, 92, 0.72);
+  background: rgba(255, 209, 102, 0.13);
+}
+
 .daily-number-copy {
   min-width: 0;
   display: grid;
@@ -928,6 +1019,29 @@ h2 {
 .calendar-day.perfect i,
 .calendar-legend i.perfect {
   background: var(--sage);
+}
+
+.calendar-day.aligned {
+  background: rgba(139, 212, 80, 0.2);
+  border-color: rgba(69, 166, 107, 0.68);
+}
+
+.calendar-day.aligned small,
+.calendar-day.aligned {
+  color: var(--sage-dark);
+}
+
+.calendar-legend i.aligned {
+  background: var(--sage);
+}
+
+.calendar-day.circumstance {
+  background: rgba(255, 209, 102, 0.2);
+  border-color: rgba(213, 166, 47, 0.72);
+}
+
+.calendar-legend i.circumstance {
+  background: var(--gold);
 }
 
 .calendar-day:not(:disabled):hover {
@@ -1542,6 +1656,20 @@ h2 {
 
   .hero-band {
     padding: 22px;
+  }
+
+  .philosophy-strip {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .daily-outcome-row {
+    grid-template-columns: 1fr;
+  }
+
+  .daily-outcome-options {
+    width: 100%;
   }
 
   .panel {

@@ -1,7 +1,7 @@
 const STORAGE_KEY = "perfect-day-state-v1";
 const SOUND_STORAGE_KEY = "perfect-day-local-sounds-v1";
-const PERFECT_DAY_TRACK = {
-  previewUrl: "https://p.scdn.co/mp3-preview/15b6a2fb249d2fbba4f2f5aea63a2979392a228e.mp3"
+const MINT_CAR_TRACK = {
+  previewUrl: "https://p.scdn.co/mp3-preview/97d599541dbe25b232dc387d728f8a3677b84d8b.mp3"
 };
 const SAUNA_TRACK = {
   previewUrl: "https://p.scdn.co/mp3-preview/556c25e5364d689df48965702632cfa8c5053baa.mp3"
@@ -59,7 +59,7 @@ function loadState() {
       };
     }
   } catch (error) {
-    console.warn("Could not load Perfect Day data", error);
+    console.warn("Could not load Compass data", error);
   }
 
   return {
@@ -211,6 +211,10 @@ function getValue(dateKey, habitId) {
   return entry[habitId] ?? 0;
 }
 
+function hasValue(dateKey, habitId) {
+  return Object.prototype.hasOwnProperty.call(state.entries[dateKey] || {}, habitId);
+}
+
 function setValue(dateKey, habitId, value) {
   const habit = findHabit(habitId);
   const wasPerfect = isPerfectDay(dateKey);
@@ -222,14 +226,14 @@ function setValue(dateKey, habitId, value) {
   render();
   if (becamePerfect && dateKey === todayKey()) {
     triggerCelebration();
-  } else if (becameComplete && dateKey === todayKey()) {
+  } else if (becameComplete && value === 1 && dateKey === todayKey()) {
     playHabitSound(habit);
   }
 }
 
 function isHabitComplete(habit, dateKeys) {
   if (habit.type === "check") {
-    if (habit.frequency === "daily") return Boolean(getValue(dateKeys[0], habit.id));
+    if (habit.frequency === "daily") return Number(getValue(dateKeys[0], habit.id)) === 1;
     return dateKeys.some((dateKey) => Boolean(getValue(dateKey, habit.id)));
   }
 
@@ -243,11 +247,36 @@ function isPerfectDay(dateKey) {
   return habits.every((habit) => isHabitComplete(habit, [dateKey]));
 }
 
+function dayOutcome(dateKey) {
+  const habits = activeHabits("daily");
+  if (!habits.length) return "untracked";
+  let hasCircumstance = false;
+  for (const habit of habits) {
+    if (habit.type === "check") {
+      if (!hasValue(dateKey, habit.id)) return dateKey === todayKey() ? "open" : "no";
+      const value = Number(getValue(dateKey, habit.id));
+      if (value === 2) hasCircumstance = true;
+      else if (value !== 1) return "no";
+    } else if (!isHabitComplete(habit, [dateKey])) {
+      if (!hasValue(dateKey, habit.id) && dateKey === todayKey()) return "open";
+      return "no";
+    }
+  }
+  return hasCircumstance ? "circumstance" : "yes";
+}
+
 function dailyScore(dateKey = todayKey()) {
   const habits = activeHabits("daily");
-  if (!habits.length) return { complete: 0, total: 0, percent: 0 };
+  if (!habits.length) return { complete: 0, circumstance: 0, total: 0, percent: 0 };
   const complete = habits.filter((habit) => isHabitComplete(habit, [dateKey])).length;
-  return { complete, total: habits.length, percent: Math.round((complete / habits.length) * 100) };
+  const circumstance = habits.filter((habit) => habit.type === "check" && Number(getValue(dateKey, habit.id)) === 2).length;
+  const opportunityCount = habits.length - circumstance;
+  return {
+    complete,
+    circumstance,
+    total: habits.length,
+    percent: opportunityCount ? Math.round((complete / opportunityCount) * 100) : 100
+  };
 }
 
 function weeklyCompletion(dateKey = todayKey()) {
@@ -261,7 +290,10 @@ function weeklyCompletion(dateKey = todayKey()) {
 function currentStreak() {
   let count = 0;
   for (let offset = 0; offset > -730; offset -= 1) {
-    if (!isPerfectDay(todayKey(offset))) break;
+    const outcome = dayOutcome(todayKey(offset));
+    if (offset === 0 && outcome === "open") continue;
+    if (outcome === "circumstance") continue;
+    if (outcome !== "yes") break;
     count += 1;
   }
   return count;
@@ -272,8 +304,10 @@ function neverMissTwiceStreak() {
   let previousDayMissed = false;
 
   knownDateRange().forEach((dateKey) => {
-    if (dateKey === todayKey() && !isPerfectDay(dateKey)) return;
-    if (isPerfectDay(dateKey)) {
+    const outcome = dayOutcome(dateKey);
+    if (dateKey === todayKey() && (outcome === "no" || outcome === "open")) return;
+    if (outcome === "circumstance") return;
+    if (outcome === "yes") {
       streak += 1;
       previousDayMissed = false;
       return;
@@ -294,7 +328,9 @@ function bestStreak() {
   let best = 0;
   let running = 0;
   allDates.forEach((dateKey) => {
-    if (isPerfectDay(dateKey)) {
+    const outcome = dayOutcome(dateKey);
+    if (outcome === "circumstance") return;
+    if (outcome === "yes") {
       running += 1;
       best = Math.max(best, running);
     } else {
@@ -315,7 +351,7 @@ function knownDateRange() {
 }
 
 function perfectDayCount() {
-  return knownDateRange().filter(isPerfectDay).length;
+  return knownDateRange().filter((dateKey) => dayOutcome(dateKey) === "yes").length;
 }
 
 function render() {
@@ -346,7 +382,7 @@ function brandMarkup() {
     <div class="brand">
       <img src="icons/perfect-day-yin.svg" alt="" />
       <div>
-        <strong>Perfect Day</strong>
+        <strong>Compass</strong>
       </div>
     </div>
   `;
@@ -376,22 +412,29 @@ function viewMarkup() {
 function todayView() {
   const dateKey = todayKey();
   const dailyHabits = activeHabits("daily");
-  const perfect = isPerfectDay(dateKey);
-  const completed = dailyHabits.filter((habit) => isHabitComplete(habit, [dateKey])).length;
-  const percent = dailyHabits.length ? Math.round((completed / dailyHabits.length) * 100) : 0;
+  const outcome = dayOutcome(dateKey);
+  const score = dailyScore(dateKey);
+  const aligned = outcome === "yes";
 
   return `
     <section class="hero-band">
       <div>
         <p class="eyebrow">Today</p>
-        <h1>${perfect ? "Another Brick Laid." : "Keep your promise."}</h1>
-        <p>${completed} of ${dailyHabits.length} daily targets complete</p>
+        <h1>${aligned ? "On course." : outcome === "circumstance" ? "Course held." : "Keep your promise."}</h1>
+        <p>${score.complete} Yes${score.circumstance ? ` · ${score.circumstance} Circumstance` : ""}</p>
       </div>
-      <div class="score-ring ${perfect ? "perfect" : ""}" style="--score:${percent}" aria-label="${percent}% complete">
+      <div class="score-ring ${aligned ? "perfect" : ""}" style="--score:${score.percent}" aria-label="${score.percent}% complete">
         <span class="score-yin-yang" aria-hidden="true">
           <img src="icons/perfect-day-yin.svg" alt="" />
         </span>
       </div>
+    </section>
+
+    ${fastingPanelMarkup()}
+
+    <section class="philosophy-strip" aria-label="Compass philosophy">
+      <p><strong>“Doing the best you can, where you are, with what you have got.”</strong> <span>Phil Neville</span></p>
+      <p><strong>“Never miss twice.”</strong> <span>James Clear</span></p>
     </section>
 
     <section class="content-grid">
@@ -421,7 +464,6 @@ function todayView() {
 
 function fastingPanelMarkup() {
   const fast = fastingStatus();
-  const log = fastingLog(todayKey());
   const statusCopy = fast.active
     ? fast.complete
       ? "Fast complete. Golden hour."
@@ -439,16 +481,12 @@ function fastingPanelMarkup() {
       </div>
       <div class="fasting-progress" data-fasting-progress aria-label="${fast.percent}% fasting target complete">
         <div class="fasting-progress-copy">
-          <span>${fast.active ? "Progress" : "Ready when you are"}</span>
+          <strong class="fasting-clock" data-fasting-clock>${formatStopwatch(fast.elapsedSeconds)}</strong>
           <strong data-fasting-percent>${fast.percent}%</strong>
         </div>
         <div class="fasting-meter"><span data-fasting-meter style="width:${fast.percent}%"></span></div>
       </div>
       <div class="fasting-actions">
-        <label class="fasting-log-field">
-          <span>Logged hours</span>
-          <input type="number" inputmode="decimal" min="0" max="168" step="0.25" value="${formatHoursInput(log.minutes)}" data-action="fasting-log" data-date="${todayKey()}" />
-        </label>
         <button class="${fast.active ? "secondary-action" : "primary-action"} fasting-toggle" data-action="toggle-fasting">
           <span>${fast.active ? "End fast" : "Start fast"}</span>
         </button>
@@ -461,11 +499,12 @@ function fastingLog(dateKey) {
   state.fasting = normalizeFasting(state.fasting);
   const existing = state.fasting.logs[dateKey] || {};
   const targetHours = Number(existing.targetHours || state.fasting.targetHours || DEFAULT_FASTING.targetHours);
-  const minutes = Math.max(0, Number(existing.minutes || 0));
+  const seconds = Math.max(0, Number(existing.seconds ?? Number(existing.minutes || 0) * 60));
   return {
-    minutes,
+    seconds,
+    minutes: Math.floor(seconds / 60),
     targetHours,
-    hit: minutes >= targetHours * 60
+    hit: seconds >= targetHours * 60 * 60
   };
 }
 
@@ -495,8 +534,23 @@ function updateFastingTicker() {
   card.classList.toggle("complete", fast.complete);
   card.querySelector("[data-fasting-status]").textContent = status;
   card.querySelector("[data-fasting-percent]").textContent = `${fast.percent}%`;
+  card.querySelector("[data-fasting-clock]").textContent = formatStopwatch(fast.elapsedSeconds);
   card.querySelector("[data-fasting-meter]").style.width = `${fast.percent}%`;
   card.querySelector("[data-fasting-progress]").setAttribute("aria-label", `${fast.percent}% fasting target complete`);
+}
+
+function formatStopwatch(totalSeconds) {
+  const clean = Math.max(0, Math.floor(Number(totalSeconds || 0)));
+  const hours = Math.floor(clean / 3600);
+  const minutes = Math.floor((clean % 3600) / 60);
+  const seconds = clean % 60;
+  return [hours, minutes, seconds].map((value) => String(value).padStart(2, "0")).join(":");
+}
+
+function parseStopwatch(value) {
+  const parts = String(value || "").trim().split(":").map(Number);
+  if (parts.length !== 3 || parts.some((part) => !Number.isFinite(part) || part < 0)) return null;
+  return Math.floor(parts[0] * 3600 + parts[1] * 60 + parts[2]);
 }
 
 function durationLabel(totalMinutes) {
@@ -538,14 +592,15 @@ function dailyHabitMarkup(habit, dateKey) {
     `;
   }
 
-  const checked = Boolean(getValue(dateKey, habit.id));
+  const value = Number(getValue(dateKey, habit.id));
+  const outcome = !hasValue(dateKey, habit.id) ? "open" : value === 1 ? "yes" : value === 2 ? "circumstance" : "no";
   return `
-    <label class="habit-row ${checked ? "done" : ""}" style="--habit-color:${color}">
-      <input type="checkbox" data-action="toggle-check" data-date="${dateKey}" data-habit="${habit.id}" ${checked ? "checked" : ""} />
-      <span class="check-ui"></span>
-      ${habitImageMarkup(habit)}
-      <span>${escapeHtml(habit.name)}</span>
-    </label>
+    <div class="habit-row daily-outcome-row outcome-${outcome}" style="--habit-color:${color}">
+      <div class="daily-outcome-name">${habitImageMarkup(habit)}<span>${escapeHtml(habit.name)}</span></div>
+      <div class="daily-outcome-options" aria-label="${escapeAttr(`${habit.name} outcome`)}">
+        ${[[1, "Yes"], [2, "Circumstance"], [0, "No"]].map(([optionValue, label]) => `<button class="${value === optionValue ? "active" : ""}" data-action="daily-outcome" data-date="${dateKey}" data-habit="${habit.id}" data-value="${optionValue}">${label}</button>`).join("")}
+      </div>
+    </div>
   `;
 }
 
@@ -728,14 +783,14 @@ function statsView() {
     <section class="stat-grid secondary-stats">
       ${statTile("Never miss twice", neverMissTwiceStreak(), "days")}
       ${statTile("Best streak", bestStreak(), "days")}
-      ${statTile("Perfect days", perfectDayCount(), "total")}
+      ${statTile("Aligned days", perfectDayCount(), "total")}
       ${statTile("Tracked days", range.length, "days")}
     </section>
 
     <section class="panel">
       <div class="panel-heading">
         <h2>${month.label}</h2>
-        <span>${month.perfectCount} perfect days</span>
+        <span>${month.perfectCount} aligned days</span>
       </div>
       <div class="month-calendar">
         ${["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => `<span class="calendar-weekday">${day}</span>`).join("")}
@@ -758,15 +813,15 @@ function fastingHistoryMarkup() {
   const rows = dates
     .map((dateKey) => {
       const log = fastingLog(dateKey);
-      const hasLog = log.minutes > 0;
+      const hasLog = log.seconds > 0;
       return `
         <label class="fasting-history-row ${hasLog ? (log.hit ? "hit" : "missed") : "empty"}">
           <span>
             <strong>${formatDate(dateKey, "short")}</strong>
-            <small>${hasLog ? `${durationLabel(log.minutes)} / ${durationLabel(log.targetHours * 60)}` : "No fast logged"}</small>
+            <small>${hasLog ? `${formatStopwatch(log.seconds)} / ${durationLabel(log.targetHours * 60)}` : "No fast logged"}</small>
           </span>
           <em>${hasLog ? (log.hit ? "Target hit" : "Below target") : "Skipped"}</em>
-          <input type="number" inputmode="decimal" min="0" max="168" step="0.25" value="${formatHoursInput(log.minutes)}" data-action="fasting-log" data-date="${dateKey}" aria-label="${escapeAttr(`Fast hours for ${formatDate(dateKey)}`)}" />
+          <input type="text" inputmode="numeric" pattern="[0-9]{2,3}:[0-9]{2}:[0-9]{2}" value="${formatStopwatch(log.seconds)}" data-action="fasting-log" data-date="${dateKey}" aria-label="${escapeAttr(`Fast duration for ${formatDate(dateKey)}`)}" />
         </label>
       `;
     })
@@ -803,7 +858,9 @@ function dayStory(dateKey) {
   if (dateKey < state.createdAt) return { status: "untracked", percent: 0 };
   if (dateKey > todayKey()) return { status: "future", percent: 0 };
   const score = dailyScore(dateKey);
-  if (score.percent === 100) return { status: "perfect", percent: 100 };
+  if (dayOutcome(dateKey) === "open") return { status: "partial", percent: score.percent };
+  if (dayOutcome(dateKey) === "circumstance") return { status: "circumstance", percent: score.percent };
+  if (score.percent === 100) return { status: "aligned", percent: 100 };
   return { status: "missed", percent: score.percent };
 }
 
@@ -895,6 +952,16 @@ function settingsView() {
 
     ${syncSettingsMarkup()}
 
+    <section class="panel fasting-settings-panel">
+      <div>
+        <h2>Fasting target</h2>
+      </div>
+      <label class="field">
+        <span>Hours</span>
+        <input type="number" min="1" max="168" step="0.5" value="${state.fasting.targetHours}" data-action="fasting-target" />
+      </label>
+    </section>
+
     <section class="panel">
       <div class="panel-heading">
         <h2>Success System</h2>
@@ -938,7 +1005,7 @@ function syncSettingsMarkup() {
         <div class="sync-account">
           <div>
             <strong>${escapeHtml(syncSession.user.email || "Signed in")}</strong>
-            <p>Use this email on every device to share the same Perfect Day data.</p>
+            <p>Use this email on every device to share the same Compass data.</p>
           </div>
           <button class="secondary-action" data-action="sync-sign-out">Sign out</button>
         </div>
@@ -1019,6 +1086,10 @@ function bindView() {
       element.addEventListener("change", () => setValue(element.dataset.date, element.dataset.habit, element.checked ? 1 : 0));
     }
 
+    if (action === "daily-outcome") {
+      element.addEventListener("click", () => setValue(element.dataset.date, element.dataset.habit, Number(element.dataset.value)));
+    }
+
     if (action === "weekly-check" || action === "period-check") {
       element.addEventListener("change", () => {
         const habit = findHabit(element.dataset.habit);
@@ -1081,8 +1152,17 @@ function bindView() {
       });
     }
     if (action === "fasting-log") {
+      element.addEventListener("input", () => {
+        const seconds = parseStopwatch(element.value);
+        if (seconds !== null) setFastingLog(element.dataset.date, seconds);
+      });
       element.addEventListener("change", () => {
-        setFastingLog(element.dataset.date, Number(element.value || 0) * 60);
+        const seconds = parseStopwatch(element.value);
+        if (seconds === null) {
+          window.alert("Use hh:mm:ss, for example 16:30:00.");
+          return;
+        }
+        setFastingLog(element.dataset.date, seconds);
         render();
       });
     }
@@ -1302,7 +1382,7 @@ function toggleFasting() {
   state.fasting = normalizeFasting(state.fasting);
   if (state.fasting.active) {
     const status = fastingStatus();
-    setFastingLog(todayKey(), status.elapsedMinutes);
+    setFastingLog(todayKey(), status.elapsedSeconds);
     state.fasting.active = false;
     state.fasting.startedAt = "";
   } else {
@@ -1313,16 +1393,17 @@ function toggleFasting() {
   render();
 }
 
-function setFastingLog(dateKey, minutes) {
+function setFastingLog(dateKey, seconds) {
   state.fasting = normalizeFasting(state.fasting);
-  const cleanMinutes = Math.max(0, Math.round(Number(minutes || 0)));
-  if (!cleanMinutes) {
+  const cleanSeconds = Math.max(0, Math.round(Number(seconds || 0)));
+  if (!cleanSeconds) {
     delete state.fasting.logs[dateKey];
     saveState();
     return;
   }
   state.fasting.logs[dateKey] = {
-    minutes: cleanMinutes,
+    seconds: cleanSeconds,
+    minutes: Math.floor(cleanSeconds / 60),
     targetHours: Number(state.fasting.targetHours || DEFAULT_FASTING.targetHours),
     updatedAt: new Date().toISOString()
   };
@@ -1332,7 +1413,7 @@ function setFastingLog(dateKey, minutes) {
 
 function exportData() {
   const backup = {
-    format: "perfect-day-backup",
+    format: "compass-backup",
     version: 2,
     exportedAt: new Date().toISOString(),
     state,
@@ -1342,7 +1423,7 @@ function exportData() {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
-  anchor.download = `perfect-day-${todayKey()}.json`;
+  anchor.download = `compass-${todayKey()}.json`;
   anchor.click();
   URL.revokeObjectURL(url);
 }
@@ -1354,16 +1435,16 @@ function importData(event) {
   reader.onload = () => {
     try {
       const parsed = JSON.parse(reader.result);
-      const importedState = parsed?.format === "perfect-day-backup" ? parsed.state : parsed;
+      const importedState = parsed?.format === "perfect-day-backup" || parsed?.format === "compass-backup" ? parsed.state : parsed;
       if (!importedState || !Array.isArray(importedState.habits) || typeof importedState.entries !== "object") {
-        throw new Error("Invalid Perfect Day file");
+        throw new Error("Invalid Compass file");
       }
       state.habits = importedState.habits;
       state.entries = importedState.entries || {};
       state.createdAt = importedState.createdAt || todayKey();
       state.fasting = normalizeFasting(importedState.fasting);
       Object.keys(localSounds).forEach((id) => delete localSounds[id]);
-      if (parsed?.format === "perfect-day-backup" && parsed.localSounds && typeof parsed.localSounds === "object") {
+      if ((parsed?.format === "perfect-day-backup" || parsed?.format === "compass-backup") && parsed.localSounds && typeof parsed.localSounds === "object") {
         Object.assign(localSounds, parsed.localSounds);
       }
       saveLocalSounds();
@@ -1477,7 +1558,7 @@ async function sendSyncSetupLink() {
     window.alert(error.message);
   } else {
     syncStatus = "Check your email";
-    window.alert("Your Perfect Day setup link has been sent. Open it, then set an app password in Settings.");
+    window.alert("Your Compass setup link has been sent. Open it, then set an app password in Settings.");
   }
   render();
 }
@@ -1544,7 +1625,7 @@ async function loadCloudState() {
 
   if (error) {
     syncStatus = "Sync failed";
-    console.warn("Perfect Day sync failed", error);
+    console.warn("Compass sync failed", error);
     return;
   }
 
@@ -1579,7 +1660,7 @@ async function pushCloudState() {
 
   if (error) {
     syncStatus = "Save failed";
-    console.warn("Perfect Day cloud save failed", error);
+    console.warn("Compass cloud save failed", error);
   } else {
     syncStatus = "Synced";
   }
@@ -1614,7 +1695,7 @@ function escapeAttr(value) {
 function triggerCelebration() {
   document.querySelector(".celebration-layer")?.remove();
   document.querySelector(".fireworks-canvas")?.remove();
-  const perfectDays = perfectDayCount();
+  const alignedDays = perfectDayCount();
   const streak = currentStreak();
 
   const canvas = document.createElement("canvas");
@@ -1627,9 +1708,9 @@ function triggerCelebration() {
   layer.innerHTML = `
     <div class="celebration-panel" role="dialog" aria-modal="true" aria-labelledby="celebration-title">
       <p class="eyebrow">100% complete</p>
-      <h2 id="celebration-title">A Perfect Day</h2>
+      <h2 id="celebration-title">On course.</h2>
       <div class="celebration-stats">
-        <p><strong>Perfect Day number ${perfectDays}</strong></p>
+        <p><strong>Aligned day ${alignedDays}</strong></p>
         <p>Current Streak ${streak} ${streak === 1 ? "Day" : "Days"}</p>
       </div>
       <div class="celebration-actions">
@@ -1639,7 +1720,7 @@ function triggerCelebration() {
   `;
   document.body.append(layer);
 
-  const audio = playPreview(PERFECT_DAY_TRACK.previewUrl);
+  const audio = playPreview(MINT_CAR_TRACK.previewUrl);
 
   const close = () => {
     if (activeAudio === audio) stopActiveAudio();
@@ -1907,7 +1988,7 @@ function resizeHabitImage(file) {
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("service-worker.js?v=28").catch((error) => console.warn("Service worker failed", error));
+    navigator.serviceWorker.register("service-worker.js?v=29").catch((error) => console.warn("Service worker failed", error));
   });
 }
 

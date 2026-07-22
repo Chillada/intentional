@@ -1,4 +1,4 @@
-# Perfect Day
+# Compass
 
 A private, installable habit tracker for daily and weekly targets.
 

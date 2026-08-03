@@ -46,7 +46,9 @@ const icons = {
   down: '<svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>',
   trash: '<svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 14h10l1-14M9 7V4h6v3"/></svg>',
   download: '<svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>',
-  reset: '<svg viewBox="0 0 24 24"><path d="M4 4v6h6"/><path d="M20 11a8 8 0 1 0-2.3 5.7"/></svg>'
+  reset: '<svg viewBox="0 0 24 24"><path d="M4 4v6h6"/><path d="M20 11a8 8 0 1 0-2.3 5.7"/></svg>',
+  volumeOn: '<svg viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="M15 9a4 4 0 0 1 0 6M18 6a8 8 0 0 1 0 12"/></svg>',
+  volumeOff: '<svg viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="m16 10 5 5M21 10l-5 5"/></svg>'
 };
 
 function loadState() {
@@ -58,7 +60,9 @@ function loadState() {
         entries: parsed.entries || {},
         dailyOutcomes: parsed.dailyOutcomes || {},
         createdAt: parsed.createdAt || todayKey(),
-        fasting: normalizeFasting(parsed.fasting)
+        fasting: normalizeFasting(parsed.fasting),
+        soundsMuted: Boolean(parsed.soundsMuted),
+        updatedAt: parsed.updatedAt || ""
       };
     }
   } catch (error) {
@@ -70,7 +74,9 @@ function loadState() {
     entries: {},
     dailyOutcomes: {},
     createdAt: todayKey(),
-    fasting: normalizeFasting()
+    fasting: normalizeFasting(),
+    soundsMuted: false,
+    updatedAt: ""
   };
 }
 
@@ -99,6 +105,7 @@ function saveLocalSounds() {
 }
 
 function saveState() {
+  if (!applyingCloudState) state.updatedAt = new Date().toISOString();
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   if (!applyingCloudState && syncSession) scheduleCloudSave();
 }
@@ -387,7 +394,12 @@ function render() {
       <main class="main-panel">
         <header class="topbar">
           ${brandMarkup()}
-          <div class="date-pill today-score-pill">Today's Score · ${dailyScore().percent}%</div>
+          <div class="topbar-actions">
+            <button class="sound-toggle ${state.soundsMuted ? "muted" : ""}" data-action="toggle-sounds" aria-pressed="${state.soundsMuted}" aria-label="${state.soundsMuted ? "Turn sounds on" : "Mute all sounds"}" title="${state.soundsMuted ? "Turn sounds on" : "Mute all sounds"}">
+              ${state.soundsMuted ? icons.volumeOff : icons.volumeOn}<span>${state.soundsMuted ? "Muted" : "Sound"}</span>
+            </button>
+            <div class="date-pill today-score-pill">Today's Score · ${dailyScore().percent}%</div>
+          </div>
         </header>
         ${viewMarkup()}
       </main>
@@ -428,7 +440,7 @@ function navMarkup(prefix) {
 }
 
 function viewMarkup() {
-  if (activeView === "pickle") return embeddedAppView("Pickle", "Your list randomiser", "/list-randomiser/");
+  if (activeView === "pickle") return embeddedAppView("Pickle", "Your list randomiser", "pickle/");
   if (activeView === "locker") return embeddedAppView("Locker", "Your locker and parking tracker", "/locker-tracker/");
   if (activeView === "stats") return statsView();
   if (activeView === "settings") return settingsView();
@@ -864,7 +876,7 @@ function sharedInsightsMarkup() {
       </div>
       <details class="insight-drawer">
         <summary>Pickle stats</summary>
-        <iframe class="embedded-app-frame insight-frame" src="/list-randomiser/" title="Pickle stats" loading="lazy" data-embedded-app="pickle-stats"></iframe>
+        <iframe class="embedded-app-frame insight-frame" src="pickle/" title="Pickle stats" loading="lazy" data-embedded-app="pickle-stats"></iframe>
       </details>
       <details class="insight-drawer">
         <summary>Locker insights</summary>
@@ -1167,6 +1179,15 @@ function bindView() {
   bindEmbeddedApps();
   document.querySelectorAll("[data-action]").forEach((element) => {
     const action = element.dataset.action;
+
+    if (action === "toggle-sounds") {
+      element.addEventListener("click", () => {
+        state.soundsMuted = !state.soundsMuted;
+        if (state.soundsMuted) stopActiveAudio();
+        saveState();
+        render();
+      });
+    }
 
     if (action === "toggle-check") {
       element.addEventListener("change", () => setValue(element.dataset.date, element.dataset.habit, element.checked ? 1 : 0));
@@ -1613,6 +1634,7 @@ function importData(event) {
       state.dailyOutcomes = importedState.dailyOutcomes || {};
       state.createdAt = importedState.createdAt || todayKey();
       state.fasting = normalizeFasting(importedState.fasting);
+      state.soundsMuted = Boolean(importedState.soundsMuted);
       Object.keys(localSounds).forEach((id) => delete localSounds[id]);
       if ((parsed?.format === "perfect-day-backup" || parsed?.format === "compass-backup") && parsed.localSounds && typeof parsed.localSounds === "object") {
         Object.assign(localSounds, parsed.localSounds);
@@ -1658,7 +1680,9 @@ function resetData() {
     entries: {},
     dailyOutcomes: {},
     createdAt: todayKey(),
-    fasting: normalizeFasting()
+    fasting: normalizeFasting(),
+    soundsMuted: false,
+    updatedAt: ""
   });
   activeView = "today";
   saveState();
@@ -1790,7 +1814,7 @@ async function loadCloudState() {
 
   const { data, error } = await syncClient
     .from("perfect_day_state")
-    .select("data")
+    .select("data, updated_at")
     .eq("user_id", syncSession.user.id)
     .maybeSingle();
 
@@ -1801,12 +1825,20 @@ async function loadCloudState() {
   }
 
   if (data?.data?.habits && Array.isArray(data.data.habits)) {
+    const localUpdatedAt = Date.parse(state.updatedAt || 0);
+    const remoteUpdatedAt = Date.parse(data.data.updatedAt || data.updated_at || 0);
+    if (localUpdatedAt > remoteUpdatedAt) {
+      await pushCloudState();
+      return;
+    }
     applyingCloudState = true;
     state.habits = data.data.habits;
     state.entries = data.data.entries || {};
     state.dailyOutcomes = data.data.dailyOutcomes || {};
     state.createdAt = data.data.createdAt || todayKey();
     state.fasting = normalizeFasting(data.data.fasting);
+    state.soundsMuted = Boolean(data.data.soundsMuted);
+    state.updatedAt = data.data.updatedAt || data.updated_at || "";
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     applyingCloudState = false;
     syncStatus = "Synced";
@@ -1977,7 +2009,7 @@ function runFireworks(canvas) {
 }
 
 function playPreview(url) {
-  if (!url) return null;
+  if (!url || state.soundsMuted) return null;
   stopActiveAudio();
   const objectUrl = url.startsWith("data:") ? soundDataUrlToObjectUrl(url) : "";
   const audio = new Audio(objectUrl || url);
@@ -2040,6 +2072,7 @@ function soundLabel(habit) {
 }
 
 function playHabitSound(habit) {
+  if (state.soundsMuted) return null;
   const sound = habitSound(habit);
   if (sound === "sauna") return playPreview(SAUNA_TRACK.previewUrl);
   if (sound === "chime") return playCompletionChime();
@@ -2048,6 +2081,7 @@ function playHabitSound(habit) {
 }
 
 function playCompletionChime() {
+  if (state.soundsMuted) return null;
   stopActiveAudio();
   const AudioContextClass = window.AudioContext || window.webkitAudioContext;
   if (!AudioContextClass) return null;
@@ -2160,7 +2194,7 @@ function resizeHabitImage(file) {
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-  navigator.serviceWorker.register("service-worker.js?v=36").catch((error) => console.warn("Service worker failed", error));
+  navigator.serviceWorker.register("service-worker.js?v=37").catch((error) => console.warn("Service worker failed", error));
   });
 }
 

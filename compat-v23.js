@@ -26,7 +26,7 @@ saveLocalSounds = function () {
 };
 
 playPreview = function (url) {
-  if (!url) return null;
+  if (!url || state.soundsMuted) return null;
   stopActiveAudio();
   const playableUrl = url.startsWith("data:") ? perfectDayCacheSound(url) : url;
   const audio = document.createElement("audio");
@@ -74,7 +74,7 @@ loadCloudState = async function () {
   const hasDeviceSounds = Object.keys(localSounds).length > 0;
   const { data, error } = await syncClient
     .from("perfect_day_state")
-    .select("data")
+    .select("data, updated_at")
     .eq("user_id", syncSession.user.id)
     .maybeSingle();
 
@@ -85,11 +85,20 @@ loadCloudState = async function () {
   }
 
   if (data?.data?.habits && Array.isArray(data.data.habits)) {
+    const localUpdatedAt = Date.parse(state.updatedAt || 0);
+    const remoteUpdatedAt = Date.parse(data.data.updatedAt || data.updated_at || 0);
+    if (localUpdatedAt > remoteUpdatedAt) {
+      await pushCloudState();
+      return;
+    }
     applyingCloudState = true;
     state.habits = data.data.habits;
     state.entries = data.data.entries || {};
+    state.dailyOutcomes = data.data.dailyOutcomes || {};
     state.createdAt = data.data.createdAt || todayKey();
     state.fasting = normalizeFasting(data.data.fasting);
+    state.soundsMuted = Boolean(data.data.soundsMuted);
+    state.updatedAt = data.data.updatedAt || data.updated_at || "";
     if (data.data.localSounds && typeof data.data.localSounds === "object") {
       Object.keys(localSounds).forEach((id) => delete localSounds[id]);
       Object.assign(localSounds, data.data.localSounds);

@@ -163,6 +163,39 @@ svg {
   font-weight: 800;
 }
 
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.sound-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid rgba(38, 65, 60, 0.18);
+  border-radius: 999px;
+  background: rgba(255, 252, 246, 0.82);
+  color: var(--sage-dark);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.sound-toggle svg {
+  width: 18px;
+  height: 18px;
+}
+
+.sound-toggle.muted {
+  background: rgba(255, 119, 109, 0.12);
+  color: #8c3d36;
+}
+
 .hero-band,
 .section-heading {
   display: flex;
@@ -1674,6 +1707,20 @@ h2 {
     display: inline-flex;
     padding: 0 10px;
     font-size: 0.74rem;
+  }
+
+  .sound-toggle {
+    width: 34px;
+    min-height: 34px;
+    padding: 0;
+  }
+
+  .sound-toggle span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
   }
 
   .hero-band,

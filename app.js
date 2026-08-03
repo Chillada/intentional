@@ -1715,9 +1715,17 @@ async function initCloudSync() {
   syncClient.auth.onAuthStateChange((event, session) => {
     syncSession = session;
     window.setTimeout(async () => {
-      if (session && event === "SIGNED_IN") await loadCloudState();
-      if (!session) syncStatus = "Sign in to sync";
-      render();
+      if (session && event === "SIGNED_IN") {
+        await loadCloudState();
+        if (activeView === "today" || activeView === "stats" || activeView === "settings") render();
+        return;
+      }
+      if (event === "SIGNED_OUT" || !session) {
+        syncStatus = "Sign in to sync";
+        if (activeView === "settings") render();
+        return;
+      }
+      if (activeView === "settings" && event !== "TOKEN_REFRESHED") render();
     }, 0);
   });
 
@@ -2194,7 +2202,7 @@ function resizeHabitImage(file) {
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-  navigator.serviceWorker.register("service-worker.js?v=37").catch((error) => console.warn("Service worker failed", error));
+  navigator.serviceWorker.register("service-worker.js?v=38").catch((error) => console.warn("Service worker failed", error));
   });
 }
 

@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#6d4aff">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Pickle">
+    <title>Pickle — a playful list randomiser</title>
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" href="icons/pickle.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="icons/pickle.svg">
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="#" aria-label="Pickle home">
+          <span class="brand-mark" aria-hidden="true">P</span>
+          <span>Pickle</span>
+        </a>
+        <div class="top-actions">
+          <button class="button ghost" id="data-button" type="button">Data</button>
+          <button class="button primary compact" id="new-category-button" type="button">
+            <span aria-hidden="true">＋</span> New list
+          </button>
+        </div>
+      </header>
+
+      <main>
+        <section class="empty-state" id="empty-state" hidden>
+          <div class="empty-illustration" aria-hidden="true">
+            <span>?</span><span>!</span><span>✦</span>
+          </div>
+          <p class="eyebrow">Your call, chance</p>
+          <h1>What should we pick?</h1>
+          <p>Create a list, add your options, and let the wheel settle it.</p>
+          <button class="button primary large" id="empty-create-button" type="button">Create my first list</button>
+        </section>
+
+        <div class="workspace" id="workspace" hidden>
+          <aside class="sidebar" aria-label="Your lists">
+            <div class="sidebar-heading">
+              <span>Your lists</span>
+              <button class="icon-button" id="sidebar-add-button" type="button" aria-label="Create a new list">＋</button>
+            </div>
+            <nav id="category-list"></nav>
+          </aside>
+
+          <section class="content">
+            <div class="category-header">
+              <div>
+                <p class="eyebrow">Randomiser</p>
+                <h1 id="category-title"></h1>
+                <p id="category-subtitle"></p>
+              </div>
+              <div class="header-actions">
+                <button class="button ghost" id="edit-category-button" type="button">Edit list</button>
+                <button class="button ghost" id="history-button" type="button">History</button>
+              </div>
+            </div>
+
+            <div class="main-grid">
+              <section class="wheel-card card">
+                <div class="wheel-wrap">
+                  <div class="wheel-pointer" aria-hidden="true"></div>
+                  <canvas id="wheel" width="660" height="660" aria-label="Random selection wheel"></canvas>
+                  <div class="wheel-hub" aria-hidden="true">PICK</div>
+                </div>
+                <button class="spin-button" id="spin-button" type="button">Spin the wheel</button>
+                <p class="spin-hint" id="spin-hint" aria-live="polite"></p>
+              </section>
+
+              <aside class="items-card card">
+                <div class="card-heading">
+                  <div>
+                    <p class="eyebrow">On the wheel</p>
+                    <h2>Options</h2>
+                  </div>
+                  <button class="icon-button dark" id="add-item-button" type="button" aria-label="Add an option">＋</button>
+                </div>
+                <div class="item-list" id="item-list"></div>
+                <div class="archived-block" id="archived-block" hidden>
+                  <button class="text-button" id="archived-toggle" type="button" aria-expanded="false">
+                    Archived options <span id="archived-count"></span>
+                  </button>
+                  <div id="archived-list" hidden></div>
+                </div>
+              </aside>
+            </div>
+
+            <section class="stats-section">
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">The tale of the tape</p>
+                  <h2>List stats</h2>
+                </div>
+                <button class="text-button danger-text" id="clear-history-button" type="button">Clear history</button>
+              </div>
+              <div class="stats-grid" id="stats-grid"></div>
+              <div class="option-stats card" id="option-stats"></div>
+            </section>
+          </section>
+        </div>
+      </main>
+    </div>
+
+    <dialog id="category-dialog">
+      <form method="dialog" id="category-form">
+        <div class="dialog-heading">
+          <div>
+            <p class="eyebrow">Make it yours</p>
+            <h2 id="category-dialog-title">New list</h2>
+          </div>
+          <button class="icon-button" type="button" data-close-dialog="category-dialog" aria-label="Close">×</button>
+        </div>
+        <label>
+          List name
+          <input id="category-name" name="name" maxlength="60" required placeholder="e.g. Huel Hot & Savoury">
+        </label>
+        <fieldset>
+          <legend>List colour</legend>
+          <div class="colour-picker" id="category-colours"></div>
+        </fieldset>
+        <div class="dialog-actions split">
+          <button class="button danger" id="delete-category-button" type="button" hidden>Delete list</button>
+          <span></span>
+          <button class="button ghost" type="button" data-close-dialog="category-dialog">Cancel</button>
+          <button class="button primary" id="save-category-button" value="default">Save list</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="item-dialog">
+      <form method="dialog" id="item-form">
+        <div class="dialog-heading">
+          <div>
+            <p class="eyebrow">Wheel option</p>
+            <h2 id="item-dialog-title">Add option</h2>
+          </div>
+          <button class="icon-button" type="button" data-close-dialog="item-dialog" aria-label="Close">×</button>
+        </div>
+        <label>
+          Option name
+          <input id="item-name" name="name" maxlength="60" required placeholder="e.g. Katsu Curry">
+        </label>
+        <label>
+          Weight <output id="weight-output">1</output>
+          <input id="item-weight" name="weight" type="range" min="1" max="10" value="1">
+          <span class="field-help">Higher weights appear more often. 1 gives every equally weighted option the same chance.</span>
+        </label>
+        <fieldset>
+          <legend>Option colour</legend>
+          <div class="colour-picker" id="item-colours"></div>
+        </fieldset>
+        <div class="dialog-actions">
+          <button class="button ghost" type="button" data-close-dialog="item-dialog">Cancel</button>
+          <button class="button primary" value="default">Save option</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="history-dialog" class="wide-dialog">
+      <div class="dialog-heading">
+        <div>
+          <p class="eyebrow">Every spin</p>
+          <h2>History</h2>
+        </div>
+        <button class="icon-button" id="close-history-button" type="button" aria-label="Close">×</button>
+      </div>
+      <div id="history-list" class="history-list"></div>
+    </dialog>
+
+    <dialog id="data-dialog">
+      <div class="dialog-heading">
+        <div>
+          <p class="eyebrow">Portable picks</p>
+          <h2>Your data</h2>
+        </div>
+        <button class="icon-button" id="close-data-button" type="button" aria-label="Close">×</button>
+      </div>
+      <p>Back up every list and spin, or restore a previous Pickle export.</p>
+      <section class="sync-panel" aria-labelledby="sync-title">
+        <div class="sync-heading">
+          <div>
+            <p class="eyebrow">Cloud pickle jar</p>
+            <h3 id="sync-title">Sign in to sync</h3>
+          </div>
+          <span class="sync-pill" id="sync-status">Local only</span>
+        </div>
+        <p class="field-help" id="sync-detail">Keep using Pickle locally, or sign in to sync lists, weights, history and stats across devices.</p>
+        <form class="sync-form" id="sync-link-form">
+          <label>
+            Email
+            <input id="sync-email" name="email" type="email" autocomplete="email" placeholder="you@example.com">
+          </label>
+          <button class="button primary" type="submit">Email sign-in link</button>
+        </form>
+        <form class="sync-form" id="sync-password-form">
+          <label>
+            App password
+            <input id="sync-password" name="password" type="password" autocomplete="current-password" placeholder="Optional, useful for home-screen apps">
+          </label>
+          <button class="button ghost" type="submit">Sign in with password</button>
+        </form>
+        <form class="sync-form" id="sync-set-password-form" hidden>
+          <label>
+            Set app password
+            <input id="sync-new-password" name="password" type="password" autocomplete="new-password" minlength="6" placeholder="6+ characters">
+          </label>
+          <button class="button ghost" type="submit">Save app password</button>
+        </form>
+        <div class="sync-actions">
+          <button class="text-button" id="sync-now-button" type="button">Sync now</button>
+          <button class="text-button danger-text" id="sync-sign-out-button" type="button" hidden>Sign out</button>
+        </div>
+      </section>
+      <div class="data-actions">
+        <button class="button primary" id="export-button" type="button">Export backup</button>
+        <label class="button ghost file-button">
+          Import backup
+          <input id="import-input" type="file" accept="application/json,.json">
+        </label>
+        <button class="button danger" id="reset-button" type="button">Reset everything</button>
+      </div>
+      <p class="field-help" id="data-message" aria-live="polite"></p>
+    </dialog>
+
+    <dialog id="winner-dialog" class="winner-dialog">
+      <div class="winner-burst" aria-hidden="true"></div>
+      <p class="eyebrow">The wheel has spoken</p>
+      <h2 id="winner-name"></h2>
+      <p id="winner-detail"></p>
+      <button class="button primary large" id="winner-close-button" type="button">Nice!</button>
+    </dialog>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="app.js" defer></script>
+  </body>
+</html>

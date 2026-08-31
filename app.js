@@ -977,8 +977,6 @@ function momentumMarkup() {
       ${statTile("Tracked days", range.length, "days")}
     </section>
 
-    ${fastingHistoryMarkup()}
-
     <section class="panel">
       <div class="panel-heading">
         <h2>${month.label}</h2>
@@ -1017,55 +1015,6 @@ function sharedInsightsMarkup() {
         <iframe class="embedded-app-frame insight-frame" src="/locker-tracker/" title="Locker insights" loading="lazy" data-embedded-app="locker-insights"></iframe>
       </details>
     </section>
-  `;
-}
-
-function fastingHistoryMarkup() {
-  state.fasting = normalizeFasting(state.fasting);
-  const dates = knownDateRange().slice(-14).reverse();
-  const rows = dates
-    .map((dateKey) => {
-      const log = fastingLog(dateKey);
-      const hasLog = log.seconds > 0;
-      return `
-        <label class="fasting-history-row ${hasLog ? (log.hit ? "hit" : "missed") : "empty"}">
-          <span>
-            <strong>${formatDate(dateKey, "short")}</strong>
-            <small>${hasLog ? `${formatStopwatch(log.seconds)} / ${durationLabel(log.targetHours * 60)}` : "No fast logged"}</small>
-          </span>
-          <em>${hasLog ? (log.hit ? "Target hit" : "Below target") : "Skipped"}</em>
-          ${fastingDurationPicker(log.seconds, dateKey)}
-        </label>
-      `;
-    })
-    .join("");
-
-  return `
-    <section class="panel fasting-history-panel">
-      <div class="panel-heading">
-        <h2>Fasting history</h2>
-        <span>Editable</span>
-      </div>
-      <div class="fasting-history-list">${rows}</div>
-    </section>
-  `;
-}
-
-function fastingDurationPicker(totalSeconds, dateKey) {
-  const clean = Math.max(0, Math.floor(Number(totalSeconds || 0)));
-  const hours = Math.min(72, Math.floor(clean / 3600));
-  const rawMinutes = Math.floor((clean % 3600) / 60);
-  const minutes = [0, 15, 30, 45].reduce((closest, value) =>
-    Math.abs(value - rawMinutes) < Math.abs(closest - rawMinutes) ? value : closest
-  , 0);
-  const optionList = (maximum, selected) =>
-    Array.from({ length: maximum + 1 }, (_, value) => `<option value="${value}" ${value === selected ? "selected" : ""}>${String(value).padStart(2, "0")}</option>`).join("");
-
-  return `
-    <div class="fasting-duration-picker" data-date="${dateKey}" aria-label="${escapeAttr(`Fast duration for ${formatDate(dateKey)}`)}">
-      <label>Hours<select data-action="fasting-duration-part" data-part="hours" aria-label="Hours">${optionList(72, hours)}</select></label>
-      <label>Minutes<select data-action="fasting-duration-part" data-part="minutes" aria-label="Minutes">${[0, 15, 30, 45].map((value) => `<option value="${value}" ${value === minutes ? "selected" : ""}>${String(value).padStart(2, "0")}</option>`).join("")}</select></label>
-    </div>
   `;
 }
 
@@ -2432,7 +2381,7 @@ function resizeHabitImage(file) {
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-  navigator.serviceWorker.register("service-worker.js?v=42").catch((error) => console.warn("Service worker failed", error));
+  navigator.serviceWorker.register("service-worker.js?v=43").catch((error) => console.warn("Service worker failed", error));
   });
 }
 

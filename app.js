@@ -406,6 +406,7 @@ function render() {
         <header class="topbar">
           ${brandMarkup()}
           <div class="topbar-actions">
+            <button class="icon-action topbar-settings" data-action="open-settings" aria-label="Open settings" title="Settings">${icons.settings}</button>
             <button class="sound-toggle ${state.soundsMuted ? "muted" : ""}" data-action="toggle-sounds" aria-pressed="${state.soundsMuted}" aria-label="${state.soundsMuted ? "Turn sounds on" : "Mute all sounds"}" title="${state.soundsMuted ? "Turn sounds on" : "Mute all sounds"}">
               ${state.soundsMuted ? icons.volumeOff : icons.volumeOn}<span>${state.soundsMuted ? "Muted" : "Sound"}</span>
             </button>
@@ -436,11 +437,7 @@ function brandMarkup() {
 function navMarkup(prefix) {
   const items = [
     ["today", "Compass"],
-    ["fasting", "Fasting"],
-    ["pickle", "Pickle"],
-    ["locker", "Locker"],
-    ["stats", "Stats"],
-    ["settings", "Settings"]
+    ["fasting", "Fasting"]
   ];
 
   return items
@@ -453,9 +450,6 @@ function navMarkup(prefix) {
 
 function viewMarkup() {
   if (activeView === "fasting") return fastingView();
-  if (activeView === "pickle") return embeddedAppView("Pickle", "Your list randomiser", "pickle/");
-  if (activeView === "locker") return embeddedAppView("Locker", "Your locker and parking tracker", "/locker-tracker/");
-  if (activeView === "stats") return statsView();
   if (activeView === "settings") return settingsView();
   return todayView();
 }
@@ -523,6 +517,8 @@ function todayView() {
         ${longTermTargetsMarkup(dateKey)}
       </div>
     </section>
+
+    ${momentumMarkup()}
   `;
 }
 
@@ -709,7 +705,8 @@ function fastingView() {
 
 function fastingRecordMarkup(record) {
   const hit = record.seconds >= record.targetHours * 3600;
-  return `<article class="fasting-record ${hit ? "hit" : ""}"><div><strong>${formatDate(record.dateKey, "short")}</strong><small>${durationLabel(Math.floor(record.seconds / 60))} · ${fastingPreset(record.targetHours).label}</small></div><span>${hit ? "Goal hit" : "Logged"}</span><button class="icon-action" data-action="edit-fast-record" data-date="${record.dateKey}" aria-label="Edit fast on ${formatDate(record.dateKey, "short")}" title="Edit">${icons.settings}</button></article>`;
+  const label = formatDate(record.dateKey, "short");
+  return `<article class="fasting-record ${hit ? "hit" : ""}"><div><strong>${label}</strong><small>${durationLabel(Math.floor(record.seconds / 60))} · ${fastingPreset(record.targetHours).label}</small></div><span>${hit ? "Goal hit" : "Logged"}</span><div class="fasting-record-actions"><button class="icon-action" data-action="edit-fast-record" data-date="${record.dateKey}" aria-label="Edit fast on ${label}" title="Edit">${icons.settings}</button><button class="icon-action danger-icon-action" data-action="delete-fast-record" data-date="${record.dateKey}" aria-label="Delete fast on ${label}" title="Delete">${icons.trash}</button></div></article>`;
 }
 
 function updateFastingTicker() {
@@ -951,15 +948,15 @@ function weeklyHabitMarkup(habit, dates) {
   `;
 }
 
-function statsView() {
+function momentumMarkup() {
   const range = knownDateRange();
   const streak = currentStreak();
   const month = monthCalendar();
 
   return `
-    <section class="section-heading">
+    <section class="section-heading momentum-heading">
       <div>
-        <p class="eyebrow">Stats</p>
+        <p class="eyebrow">Compass</p>
         <h1>Momentum</h1>
       </div>
     </section>
@@ -998,8 +995,6 @@ function statsView() {
         <span><i class="perfect"></i>Perfect</span>
       </div>
     </section>
-
-    ${sharedInsightsMarkup()}
 
   `;
 }
@@ -1305,9 +1300,13 @@ function bindNav() {
 }
 
 function bindView() {
-  bindEmbeddedApps();
   document.querySelectorAll("[data-action]").forEach((element) => {
     const action = element.dataset.action;
+
+    if (action === "open-settings") element.addEventListener("click", () => {
+      activeView = "settings";
+      render();
+    });
 
     if (action === "toggle-sounds") {
       element.addEventListener("click", () => {
@@ -1430,6 +1429,7 @@ function bindView() {
     if (action === "add-fast") element.addEventListener("click", () => openFastingLogDialog());
     if (action === "edit-fast") element.addEventListener("click", () => openFastingLogDialog({ active: true }));
     if (action === "edit-fast-record") element.addEventListener("click", () => openFastingLogDialog(fastingRecords().find((record) => record.dateKey === element.dataset.date)));
+    if (action === "delete-fast-record") element.addEventListener("click", () => openDeleteFastingRecordDialog(element.dataset.date));
     if (action === "sync-sign-out") element.addEventListener("click", signOutOfSync);
     if (action === "sync-setup-link") element.addEventListener("click", sendSyncSetupLink);
     if (action === "toggle-history-day") element.addEventListener("click", () => openHistoryDayDialog(element.dataset.date));
@@ -1849,6 +1849,34 @@ function importData(event) {
     }
   };
   reader.readAsText(file);
+}
+
+function openDeleteFastingRecordDialog(dateKey) {
+  const record = fastingRecords().find((item) => item.dateKey === dateKey);
+  if (!record) return;
+  const dialog = document.createElement("dialog");
+  dialog.className = "confirm-dialog";
+  dialog.innerHTML = `
+    <form method="dialog" class="dialog-form">
+      <p class="eyebrow">Remove fast</p>
+      <h2>Delete this fast?</h2>
+      <p>${escapeHtml(formatDate(dateKey, "short"))} · ${escapeHtml(durationLabel(Math.floor(record.seconds / 60)))}</p>
+      <menu class="dialog-actions">
+        <button value="cancel" class="secondary-action">Keep fast</button>
+        <button value="confirm" class="danger-action">Delete fast</button>
+      </menu>
+    </form>
+  `;
+  document.body.append(dialog);
+  dialog.showModal();
+  dialog.addEventListener("close", () => {
+    if (dialog.returnValue === "confirm") {
+      delete state.fasting.logs[dateKey];
+      saveState();
+      render();
+    }
+    dialog.remove();
+  });
 }
 
 function openResetDialog() {
@@ -2404,7 +2432,7 @@ function resizeHabitImage(file) {
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-  navigator.serviceWorker.register("service-worker.js?v=41").catch((error) => console.warn("Service worker failed", error));
+  navigator.serviceWorker.register("service-worker.js?v=42").catch((error) => console.warn("Service worker failed", error));
   });
 }
 

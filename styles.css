@@ -466,6 +466,8 @@ svg {
 .fasting-record.hit { border-left-color: var(--gold); }
 .fasting-record > div { min-width: 0; display: grid; gap: 3px; }
 .fasting-record > span { color: #9b6f12; font-size: 0.76rem; font-weight: 850; }
+.fasting-record-actions { display: flex !important; gap: 7px; }
+.danger-icon-action { color: var(--coral); }
 
 .fasting-toggle {
   min-width: 120px;

@@ -22,7 +22,7 @@ const FASTING_PRESETS = [
 const SYNC_CONFIG = {
   url: "https://hwjyupnbybekckearloz.supabase.co",
   key: "sb_publishable_dtdIdtfFdTVYqkWGEVxVQA_XN2ZetBM",
-  redirectUrl: "https://chillada.github.io/perfect-day/"
+  redirectUrl: "https://chillada.github.io/intentional/"
 };
 
 const defaultHabits = [
@@ -1263,9 +1263,9 @@ function syncSettingsMarkup() {
           <input name="password" type="password" autocomplete="current-password" minlength="8" required placeholder="Your app password" />
         </label>
         <button class="primary-action" type="submit">Sign in</button>
-        <button class="secondary-action" type="button" data-action="sync-setup-link">Email setup link</button>
+        <button class="secondary-action" type="button" data-action="sync-setup-link">Forgot password / setup link</button>
       </form>
-      <p class="sync-note">New here or no password yet? Open the setup link, set an app password, then sign in here.</p>
+      <p class="sync-note">Use your original email. Open the link, set a new app password, then sign in here.</p>
     </section>
   `;
 }
@@ -2404,7 +2404,7 @@ function resizeHabitImage(file) {
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-  navigator.serviceWorker.register("service-worker.js?v=40").catch((error) => console.warn("Service worker failed", error));
+  navigator.serviceWorker.register("service-worker.js?v=41").catch((error) => console.warn("Service worker failed", error));
   });
 }
 

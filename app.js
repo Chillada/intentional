@@ -666,18 +666,24 @@ function fastingView() {
       </div>
       <div class="fasting-meter" data-fasting-progress aria-label="${fast.percent}% of fasting target complete"><span data-fasting-meter style="width:${fast.percent}%"></span></div>
       <div class="fasting-target-line"><span data-fasting-target>${preset.label} target</span><span data-fasting-percent>${fast.percent}%</span></div>
+      <div class="fasting-brief" data-fasting-brief>
+        <strong data-fasting-phase-name>${phase.name}</strong>
+        <span data-fasting-phase-copy>${phase.copy}</span>
+      </div>
       <div class="fasting-actions">
         <button class="${fast.active ? "secondary-action" : "primary-action"}" data-action="toggle-fasting">${fast.active ? "End fast" : "Start fast"}</button>
       </div>
     </section>
 
-    <section class="panel fasting-goals-panel">
-      <div class="panel-heading"><h2>Goal</h2><span>${escapeHtml(preset.detail)}</span></div>
-      <div class="fasting-preset-grid">
-        ${FASTING_PRESETS.map((item) => `<button class="fasting-preset ${item.hours === Number(state.fasting.targetHours) ? "active" : ""}" data-action="fasting-preset" data-hours="${item.hours}"><strong>${item.label}</strong><small>${item.detail}</small></button>`).join("")}
+    <details class="panel fasting-goals-panel">
+      <summary><span><strong>Goal · ${preset.label}</strong><small>${escapeHtml(preset.detail)}</small></span><span class="goal-summary-toggle">Change</span></summary>
+      <div class="fasting-goals-content">
+        <div class="fasting-preset-grid">
+          ${FASTING_PRESETS.map((item) => `<button class="fasting-preset ${item.hours === Number(state.fasting.targetHours) ? "active" : ""}" data-action="fasting-preset" data-hours="${item.hours}"><strong>${item.label}</strong><small>${item.detail}</small></button>`).join("")}
+        </div>
+        <label class="field fasting-custom-goal"><span>Custom target in hours</span><input type="number" min="1" max="168" step="0.5" value="${state.fasting.targetHours}" data-action="fasting-target" /></label>
       </div>
-      <label class="field fasting-custom-goal"><span>Custom target in hours</span><input type="number" min="1" max="168" step="0.5" value="${state.fasting.targetHours}" data-action="fasting-target" /></label>
-    </section>
+    </details>
 
     <section class="panel fasting-phase-panel">
       <div class="panel-heading"><h2>${phase.name}</h2><span>${phase.until ? `Next: ${phase.until}h` : "Extended window"}</span></div>
@@ -718,6 +724,9 @@ function updateFastingTicker() {
   const meter = document.querySelector("[data-fasting-meter]");
   if (meter) meter.style.width = `${fast.percent}%`;
   document.querySelector("[data-fasting-progress]")?.setAttribute("aria-label", `${fast.percent}% of fasting target complete`);
+  const phase = fastingPhase(fast.elapsedSeconds);
+  document.querySelector("[data-fasting-phase-name]")?.replaceChildren(phase.name);
+  document.querySelector("[data-fasting-phase-copy]")?.replaceChildren(phase.copy);
 }
 
 function formatStopwatch(totalSeconds) {
@@ -2395,7 +2404,7 @@ function resizeHabitImage(file) {
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-  navigator.serviceWorker.register("service-worker.js?v=39").catch((error) => console.warn("Service worker failed", error));
+  navigator.serviceWorker.register("service-worker.js?v=40").catch((error) => console.warn("Service worker failed", error));
   });
 }
 

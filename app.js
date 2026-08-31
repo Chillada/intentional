@@ -8,7 +8,17 @@ const SAUNA_TRACK = {
 };
 const PERIOD_FREQUENCIES = ["weekly", "monthly", "halfyear", "yearly"];
 const HABIT_COLORS = ["#45a66b", "#e6b85c", "#ff776d", "#4f8fbf", "#9a72b5", "#28a7a1"];
-const DEFAULT_FASTING = { targetHours: 12, active: false, startedAt: "" };
+const DEFAULT_FASTING = { targetHours: 13, active: false, startedAt: "", logs: {} };
+const FASTING_PRESETS = [
+  { hours: 12, label: "12:12", detail: "A gentle overnight rhythm." },
+  { hours: 13, label: "13:11", detail: "A practical daily fasting window." },
+  { hours: 14, label: "14:10", detail: "A slightly longer daily window." },
+  { hours: 16, label: "16:8", detail: "A commonly used time-restricted pattern." },
+  { hours: 18, label: "18:6", detail: "A longer daily fasting window." },
+  { hours: 20, label: "20:4", detail: "A focused, shorter eating window." },
+  { hours: 24, label: "24-hour", detail: "An extended fast; plan it thoughtfully." },
+  { hours: 36, label: "36-hour", detail: "A prolonged fast; consider whether it suits you." }
+];
 const SYNC_CONFIG = {
   url: "https://hwjyupnbybekckearloz.supabase.co",
   key: "sb_publishable_dtdIdtfFdTVYqkWGEVxVQA_XN2ZetBM",
@@ -41,6 +51,7 @@ const icons = {
   settings: '<svg viewBox="0 0 24 24"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1A2 2 0 1 1 4.2 17l.1-.1A1.7 1.7 0 0 0 4.6 15 1.7 1.7 0 0 0 3 14H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1A2 2 0 1 1 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6 1.7 1.7 0 0 0 10 3V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1A2 2 0 1 1 19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg>',
   pickle: '<svg viewBox="0 0 24 24"><path d="M6 3h12v18H6z"/><path d="M9 7h6M9 11h6M9 15h4"/></svg>',
   locker: '<svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M9 3v18M14 12h1"/></svg>',
+  fasting: '<svg viewBox="0 0 24 24"><path d="M12 3a7 7 0 1 0 7 7c0-3.9-3.1-7-7-7Z"/><path d="M12 7v5l3 2M5 21h14"/></svg>',
   plus: '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
   up: '<svg viewBox="0 0 24 24"><path d="m6 15 6-6 6 6"/></svg>',
   down: '<svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>',
@@ -86,8 +97,8 @@ function normalizeFasting(fasting = {}) {
   const logs = fasting.logs && typeof fasting.logs === "object" ? fasting.logs : {};
   return {
     targetHours,
-    active: false,
-    startedAt: "",
+    active: Boolean(fasting.active && startedAt),
+    startedAt,
     logs
   };
 }
@@ -425,6 +436,7 @@ function brandMarkup() {
 function navMarkup(prefix) {
   const items = [
     ["today", "Compass"],
+    ["fasting", "Fasting"],
     ["pickle", "Pickle"],
     ["locker", "Locker"],
     ["stats", "Stats"],
@@ -440,6 +452,7 @@ function navMarkup(prefix) {
 }
 
 function viewMarkup() {
+  if (activeView === "fasting") return fastingView();
   if (activeView === "pickle") return embeddedAppView("Pickle", "Your list randomiser", "pickle/");
   if (activeView === "locker") return embeddedAppView("Locker", "Your locker and parking tracker", "/locker-tracker/");
   if (activeView === "stats") return statsView();
@@ -576,18 +589,135 @@ function fastingStatus(now = new Date()) {
   };
 }
 
-function updateFastingTicker() {
-  if (activeView !== "stats") return;
-  const card = document.querySelector(".fasting-card");
-  if (!card || !normalizeFasting(state.fasting).active) return;
+function fastingPreset(hours = state.fasting.targetHours) {
+  return FASTING_PRESETS.find((preset) => preset.hours === Number(hours)) || { hours: Number(hours), label: `${formatHoursInput(Number(hours) * 60)}-hour`, detail: "A custom fasting window." };
+}
+
+function fastingPhase(elapsedSeconds) {
+  const hours = elapsedSeconds / 3600;
+  if (hours < 4) return { name: "Early fasting", until: 4, copy: "Typically the time soon after eating, while your body is still processing recent food." };
+  if (hours < 12) return { name: "Between meals", until: 12, copy: "A familiar between-meals window. Hunger may come in waves and can vary day to day." };
+  if (hours < 18) return { name: "Metabolic shift", until: 18, copy: "Your body may gradually rely more on stored energy. Responses differ between people." };
+  if (hours < 24) return { name: "Extended fasting", until: 24, copy: "A longer fasting window. Keep the plan realistic for your day and how you feel." };
+  return { name: "Prolonged fasting", until: null, copy: "An extended duration. Consider whether this is appropriate for you before continuing." };
+}
+
+function fastingRecords() {
+  state.fasting = normalizeFasting(state.fasting);
+  return Object.entries(state.fasting.logs)
+    .map(([dateKey, log]) => ({
+      dateKey,
+      seconds: Math.max(0, Number(log.seconds ?? Number(log.minutes || 0) * 60)),
+      targetHours: Number(log.targetHours || state.fasting.targetHours),
+      startAt: log.startAt || "",
+      endAt: log.endAt || ""
+    }))
+    .filter((record) => record.seconds > 0)
+    .sort((a, b) => b.dateKey.localeCompare(a.dateKey));
+}
+
+function fastingStats() {
+  const records = fastingRecords();
+  const totalSeconds = records.reduce((sum, record) => sum + record.seconds, 0);
+  const completed = records.length;
+  const hits = records.filter((record) => record.seconds >= record.targetHours * 3600).length;
+  const longestSeconds = records.reduce((longest, record) => Math.max(longest, record.seconds), 0);
+  const days = new Set(records.map((record) => record.dateKey));
+  let currentStreak = 0;
+  for (let date = new Date(); ; date.setDate(date.getDate() - 1)) {
+    const key = toDateKey(date);
+    if (!days.has(key)) break;
+    currentStreak += 1;
+  }
+  const orderedDays = [...days].sort();
+  let bestStreak = 0;
+  let run = 0;
+  let previous = null;
+  orderedDays.forEach((key) => {
+    const day = dateFromKey(key);
+    if (previous && Math.round((day - previous) / 86400000) === 1) run += 1;
+    else run = 1;
+    bestStreak = Math.max(bestStreak, run);
+    previous = day;
+  });
+  return { completed, hits, hitRate: completed ? Math.round((hits / completed) * 100) : 0, averageSeconds: completed ? Math.round(totalSeconds / completed) : 0, longestSeconds, currentStreak, bestStreak, records };
+}
+
+function fastingView() {
   const fast = fastingStatus();
-  const status = fast.complete ? "Fast complete. Golden hour." : "Fast in progress. Steady does it.";
-  card.classList.toggle("complete", fast.complete);
-  card.querySelector("[data-fasting-status]").textContent = status;
-  card.querySelector("[data-fasting-percent]").textContent = `${fast.percent}%`;
-  card.querySelector("[data-fasting-clock]").textContent = formatStopwatch(fast.elapsedSeconds);
-  card.querySelector("[data-fasting-meter]").style.width = `${fast.percent}%`;
-  card.querySelector("[data-fasting-progress]").setAttribute("aria-label", `${fast.percent}% fasting target complete`);
+  const preset = fastingPreset();
+  const phase = fastingPhase(fast.elapsedSeconds);
+  const remaining = Math.max(0, state.fasting.targetHours * 3600 - fast.elapsedSeconds);
+  const stats = fastingStats();
+  return `
+    <section class="section-heading fasting-page-heading">
+      <div><p class="eyebrow">Fasting</p><h1>${fast.active ? "Stay the course." : "Set your rhythm."}</h1></div>
+      <button class="secondary-action" data-action="add-fast">Add a fast</button>
+    </section>
+
+    <section class="fasting-dashboard ${fast.active ? "active" : ""} ${fast.complete ? "complete" : ""}">
+      <div class="fasting-dashboard-top">
+        <div><span class="eyebrow">${fast.active ? "Current fast" : "Ready when you are"}</span><h2 data-fasting-status>${fast.complete ? "Target reached." : fast.active ? "Fast in progress." : "Not fasting."}</h2></div>
+        <button class="icon-action" data-action="edit-fast" aria-label="Edit current fast" title="Edit current fast">${icons.settings}</button>
+      </div>
+      <div class="fasting-time-grid">
+        <div><span>Elapsed</span><strong class="fasting-clock" data-fasting-clock>${formatStopwatch(fast.elapsedSeconds)}</strong></div>
+        <div><span>${fast.complete ? "Goal" : "Remaining"}</span><strong data-fasting-remaining>${fast.complete ? "Complete" : formatStopwatch(remaining)}</strong></div>
+      </div>
+      <div class="fasting-meter" data-fasting-progress aria-label="${fast.percent}% of fasting target complete"><span data-fasting-meter style="width:${fast.percent}%"></span></div>
+      <div class="fasting-target-line"><span data-fasting-target>${preset.label} target</span><span data-fasting-percent>${fast.percent}%</span></div>
+      <div class="fasting-actions">
+        <button class="${fast.active ? "secondary-action" : "primary-action"}" data-action="toggle-fasting">${fast.active ? "End fast" : "Start fast"}</button>
+      </div>
+    </section>
+
+    <section class="panel fasting-goals-panel">
+      <div class="panel-heading"><h2>Goal</h2><span>${escapeHtml(preset.detail)}</span></div>
+      <div class="fasting-preset-grid">
+        ${FASTING_PRESETS.map((item) => `<button class="fasting-preset ${item.hours === Number(state.fasting.targetHours) ? "active" : ""}" data-action="fasting-preset" data-hours="${item.hours}"><strong>${item.label}</strong><small>${item.detail}</small></button>`).join("")}
+      </div>
+      <label class="field fasting-custom-goal"><span>Custom target in hours</span><input type="number" min="1" max="168" step="0.5" value="${state.fasting.targetHours}" data-action="fasting-target" /></label>
+    </section>
+
+    <section class="panel fasting-phase-panel">
+      <div class="panel-heading"><h2>${phase.name}</h2><span>${phase.until ? `Next: ${phase.until}h` : "Extended window"}</span></div>
+      <p>${phase.copy}</p>
+      <small>Phase timing is only a general guide, not medical advice.</small>
+    </section>
+
+    <section class="stat-grid fasting-stat-grid">
+      ${statTile("Completed fasts", stats.completed, "total")}
+      ${statTile("Goal hit rate", stats.hitRate, "%")}
+      ${statTile("Average fast", durationLabel(Math.floor(stats.averageSeconds / 60)), "")}
+      ${statTile("Longest fast", durationLabel(Math.floor(stats.longestSeconds / 60)), "")}
+      ${statTile("Current streak", stats.currentStreak, stats.currentStreak === 1 ? "day" : "days")}
+      ${statTile("Best streak", stats.bestStreak, stats.bestStreak === 1 ? "day" : "days")}
+    </section>
+
+    <section class="panel fasting-history-panel fasting-page-history">
+      <div class="panel-heading"><h2>History</h2><span>${stats.records.length} logged</span></div>
+      <div class="fasting-history-list">${stats.records.length ? stats.records.map(fastingRecordMarkup).join("") : `<p class="empty">Your completed fasts will appear here.</p>`}</div>
+    </section>
+  `;
+}
+
+function fastingRecordMarkup(record) {
+  const hit = record.seconds >= record.targetHours * 3600;
+  return `<article class="fasting-record ${hit ? "hit" : ""}"><div><strong>${formatDate(record.dateKey, "short")}</strong><small>${durationLabel(Math.floor(record.seconds / 60))} · ${fastingPreset(record.targetHours).label}</small></div><span>${hit ? "Goal hit" : "Logged"}</span><button class="icon-action" data-action="edit-fast-record" data-date="${record.dateKey}" aria-label="Edit fast on ${formatDate(record.dateKey, "short")}" title="Edit">${icons.settings}</button></article>`;
+}
+
+function updateFastingTicker() {
+  if (activeView !== "fasting" || !normalizeFasting(state.fasting).active) return;
+  const fast = fastingStatus();
+  const remaining = Math.max(0, state.fasting.targetHours * 3600 - fast.elapsedSeconds);
+  document.querySelector(".fasting-dashboard")?.classList.toggle("complete", fast.complete);
+  document.querySelector("[data-fasting-status]")?.replaceChildren(fast.complete ? "Target reached." : "Fast in progress.");
+  document.querySelector("[data-fasting-percent]")?.replaceChildren(`${fast.percent}%`);
+  document.querySelector("[data-fasting-clock]")?.replaceChildren(formatStopwatch(fast.elapsedSeconds));
+  document.querySelector("[data-fasting-remaining]")?.replaceChildren(fast.complete ? "Complete" : formatStopwatch(remaining));
+  const meter = document.querySelector("[data-fasting-meter]");
+  if (meter) meter.style.width = `${fast.percent}%`;
+  document.querySelector("[data-fasting-progress]")?.setAttribute("aria-label", `${fast.percent}% of fasting target complete`);
 }
 
 function formatStopwatch(totalSeconds) {
@@ -1049,16 +1179,6 @@ function settingsView() {
 
     ${syncSettingsMarkup()}
 
-    <section class="panel fasting-settings-panel">
-      <div>
-        <h2>Fasting target</h2>
-      </div>
-      <label class="field">
-        <span>Hours</span>
-        <input type="number" min="1" max="168" step="0.5" value="${state.fasting.targetHours}" data-action="fasting-target" />
-      </label>
-    </section>
-
     <section class="panel">
       <div class="panel-heading">
         <h2>Success System</h2>
@@ -1281,6 +1401,13 @@ function bindView() {
         render();
       });
     }
+    if (action === "fasting-preset") {
+      element.addEventListener("click", () => {
+        state.fasting = normalizeFasting({ ...(state.fasting || {}), targetHours: element.dataset.hours });
+        saveState();
+        render();
+      });
+    }
     if (action === "fasting-duration-part") {
       element.addEventListener("change", () => {
         const picker = element.closest(".fasting-duration-picker");
@@ -1291,6 +1418,9 @@ function bindView() {
       });
     }
     if (action === "toggle-fasting") element.addEventListener("click", toggleFasting);
+    if (action === "add-fast") element.addEventListener("click", () => openFastingLogDialog());
+    if (action === "edit-fast") element.addEventListener("click", () => openFastingLogDialog({ active: true }));
+    if (action === "edit-fast-record") element.addEventListener("click", () => openFastingLogDialog(fastingRecords().find((record) => record.dateKey === element.dataset.date)));
     if (action === "sync-sign-out") element.addEventListener("click", signOutOfSync);
     if (action === "sync-setup-link") element.addEventListener("click", sendSyncSetupLink);
     if (action === "toggle-history-day") element.addEventListener("click", () => openHistoryDayDialog(element.dataset.date));
@@ -1572,7 +1702,8 @@ function toggleFasting() {
   state.fasting = normalizeFasting(state.fasting);
   if (state.fasting.active) {
     const status = fastingStatus();
-    setFastingLog(todayKey(), status.elapsedSeconds);
+    const started = new Date(state.fasting.startedAt);
+    setFastingLog(toDateKey(started), status.elapsedSeconds, { startAt: state.fasting.startedAt, endAt: new Date().toISOString() });
     state.fasting.active = false;
     state.fasting.startedAt = "";
   } else {
@@ -1583,7 +1714,7 @@ function toggleFasting() {
   render();
 }
 
-function setFastingLog(dateKey, seconds) {
+function setFastingLog(dateKey, seconds, details = {}) {
   state.fasting = normalizeFasting(state.fasting);
   const cleanSeconds = Math.max(0, Math.round(Number(seconds || 0)));
   if (!cleanSeconds) {
@@ -1595,9 +1726,71 @@ function setFastingLog(dateKey, seconds) {
     seconds: cleanSeconds,
     minutes: Math.floor(cleanSeconds / 60),
     targetHours: Number(state.fasting.targetHours || DEFAULT_FASTING.targetHours),
+    ...details,
     updatedAt: new Date().toISOString()
   };
   saveState();
+}
+
+function localDateTimeValue(value) {
+  const date = value ? new Date(value) : new Date();
+  if (Number.isNaN(date.getTime())) return "";
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 16);
+}
+
+function openFastingLogDialog(record = {}) {
+  state.fasting = normalizeFasting(state.fasting);
+  const active = Boolean(record.active);
+  const now = new Date();
+  const source = active ? fastingStatus(now) : record;
+  const start = active ? state.fasting.startedAt : record.startAt;
+  const end = active ? now.toISOString() : record.endAt;
+  const startFallback = start || new Date(now.getTime() - Number(source.seconds || 0) * 1000).toISOString();
+  const endFallback = end || now.toISOString();
+  const dialog = document.createElement("dialog");
+  dialog.className = "confirm-dialog fasting-edit-dialog";
+  dialog.innerHTML = `
+    <form method="dialog" class="dialog-form">
+      <p class="eyebrow">${active ? "Current fast" : record.dateKey ? "Edit fast" : "Add a fast"}</p>
+      <h2>${active ? "Adjust your timer" : "Log a fast"}</h2>
+      <label class="field"><span>Started</span><input name="start" type="datetime-local" required value="${localDateTimeValue(startFallback)}" /></label>
+      <label class="field"><span>Ended</span><input name="end" type="datetime-local" required value="${localDateTimeValue(endFallback)}" /></label>
+      <label class="field"><span>Goal</span><select name="targetHours">${FASTING_PRESETS.map((preset) => `<option value="${preset.hours}" ${Number(source.targetHours || state.fasting.targetHours) === preset.hours ? "selected" : ""}>${preset.label}</option>`).join("")}<option value="custom">Custom</option></select></label>
+      <label class="field" data-custom-fast-hours hidden><span>Custom hours</span><input name="customHours" type="number" min="1" max="168" step="0.5" value="${Number(source.targetHours || state.fasting.targetHours)}" /></label>
+      <menu class="dialog-actions"><button value="cancel" class="secondary-action">Cancel</button><button value="save" class="primary-action">Save</button></menu>
+    </form>`;
+  document.body.append(dialog);
+  dialog.showModal();
+  const form = dialog.querySelector("form");
+  const targetSelect = form.elements.targetHours;
+  const custom = form.querySelector("[data-custom-fast-hours]");
+  const updateCustom = () => { custom.hidden = targetSelect.value !== "custom"; };
+  updateCustom();
+  targetSelect.addEventListener("change", updateCustom);
+  form.addEventListener("submit", (event) => {
+    if (event.submitter?.value !== "save") return;
+    event.preventDefault();
+    const formData = new FormData(form);
+    const startDate = new Date(formData.get("start"));
+    const endDate = new Date(formData.get("end"));
+    const targetHours = Number(formData.get("targetHours") === "custom" ? formData.get("customHours") : formData.get("targetHours"));
+    const seconds = Math.floor((endDate - startDate) / 1000);
+    if (!Number.isFinite(seconds) || seconds <= 0 || !Number.isFinite(targetHours) || targetHours < 1) {
+      window.alert("Choose an end time after the start time.");
+      return;
+    }
+    state.fasting = normalizeFasting({ ...state.fasting, targetHours });
+    setFastingLog(toDateKey(startDate), seconds, { targetHours, startAt: startDate.toISOString(), endAt: endDate.toISOString() });
+    if (active) {
+      state.fasting.active = true;
+      state.fasting.startedAt = startDate.toISOString();
+      saveState();
+    }
+    dialog.close();
+    render();
+  });
+  dialog.addEventListener("close", () => dialog.remove());
 }
 
 
@@ -2202,7 +2395,7 @@ function resizeHabitImage(file) {
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-  navigator.serviceWorker.register("service-worker.js?v=38").catch((error) => console.warn("Service worker failed", error));
+  navigator.serviceWorker.register("service-worker.js?v=39").catch((error) => console.warn("Service worker failed", error));
   });
 }
 

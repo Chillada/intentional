@@ -197,7 +197,6 @@ statsView = function () {
       ${statTile("Tracked days", range.length, "days")}
       ${statTile("Average completion", averageDailyCompletion(range), "%")}
     </section>
-    ${fastingHistoryMarkup()}
     <section class="panel">
       <div class="panel-heading">
         <h2>${month.label}</h2>

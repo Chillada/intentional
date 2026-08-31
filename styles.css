@@ -322,6 +322,121 @@ svg {
   background: linear-gradient(90deg, var(--gold), #f2ad3b);
 }
 
+.fasting-dashboard {
+  display: grid;
+  gap: 18px;
+  padding: clamp(20px, 4vw, 32px);
+  margin-bottom: 18px;
+  border: 1px solid rgba(38, 65, 60, 0.18);
+  border-radius: var(--radius);
+  background: #fff;
+  box-shadow: var(--shadow);
+}
+
+.fasting-dashboard.active {
+  border-color: rgba(69, 166, 107, 0.5);
+  background: linear-gradient(135deg, rgba(232, 247, 238, 0.94), #fff);
+}
+
+.fasting-dashboard.complete {
+  border-color: rgba(230, 184, 92, 0.9);
+  background: linear-gradient(135deg, rgba(255, 209, 102, 0.3), #fff);
+}
+
+.fasting-dashboard-top,
+.fasting-target-line,
+.fasting-record {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.fasting-dashboard-top h2 { margin: 4px 0 0; font-size: 1.35rem; }
+
+.fasting-time-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.fasting-time-grid > div {
+  padding: 14px;
+  border-radius: var(--radius);
+  background: rgba(38, 65, 60, 0.07);
+}
+
+.fasting-time-grid span,
+.fasting-target-line,
+.fasting-record small,
+.fasting-phase-panel small {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.fasting-time-grid strong {
+  display: block;
+  margin-top: 5px;
+  color: var(--sage-dark);
+  font-size: clamp(1.2rem, 4vw, 1.8rem);
+  font-variant-numeric: tabular-nums;
+}
+
+.icon-action {
+  display: inline-grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: #fff;
+  color: var(--sage-dark);
+}
+
+.icon-action svg { width: 18px; height: 18px; }
+
+.fasting-goals-panel,
+.fasting-phase-panel,
+.fasting-page-history { margin-top: 18px; }
+
+.fasting-preset-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.fasting-preset {
+  min-height: 84px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+  color: var(--ink);
+  text-align: left;
+}
+
+.fasting-preset strong { display: block; color: var(--sage-dark); }
+.fasting-preset small { display: block; margin-top: 5px; color: var(--muted); font-size: 0.68rem; line-height: 1.25; }
+.fasting-preset.active { border-color: var(--sage); background: rgba(69, 166, 107, 0.12); box-shadow: inset 0 0 0 1px var(--sage); }
+.fasting-custom-goal { max-width: 230px; margin-top: 14px; }
+.fasting-phase-panel p { margin: 0 0 10px; color: var(--ink); line-height: 1.5; }
+.fasting-stat-grid { margin-top: 18px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.fasting-stat-grid .stat-tile strong { font-size: 1.22rem; }
+
+.fasting-record {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-left: 4px solid #c8d0ca;
+  border-radius: var(--radius);
+  background: #fff;
+}
+
+.fasting-record.hit { border-left-color: var(--gold); }
+.fasting-record > div { min-width: 0; display: grid; gap: 3px; }
+.fasting-record > span { color: #9b6f12; font-size: 0.76rem; font-weight: 850; }
+
 .fasting-toggle {
   min-width: 120px;
   white-space: nowrap;
@@ -1732,6 +1847,9 @@ h2 {
     grid-template-columns: 1fr;
     align-items: stretch;
   }
+
+  .fasting-preset-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .fasting-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
   .hero-band {
     min-height: 124px;

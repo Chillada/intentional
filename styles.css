@@ -383,6 +383,25 @@ svg {
   font-variant-numeric: tabular-nums;
 }
 
+.fasting-goal-time {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 0 2px;
+}
+
+.fasting-goal-time span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.fasting-goal-time strong {
+  color: var(--sage-dark);
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+}
+
 .fasting-brief {
   display: grid;
   gap: 3px;

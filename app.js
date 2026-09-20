@@ -660,6 +660,7 @@ function fastingView() {
         <div><span>Elapsed</span><strong class="fasting-clock" data-fasting-clock>${formatStopwatch(fast.elapsedSeconds)}</strong></div>
         <div><span>${fast.complete ? "Goal" : "Remaining"}</span><strong data-fasting-remaining>${fast.complete ? "Complete" : formatStopwatch(remaining)}</strong></div>
       </div>
+      <div class="fasting-goal-time"><span>Goal time</span><strong data-fasting-goal-time>${fast.active ? formatFastingGoalTime() : "--:--"}</strong></div>
       <div class="fasting-meter" data-fasting-progress aria-label="${fast.percent}% of fasting target complete"><span data-fasting-meter style="width:${fast.percent}%"></span></div>
       <div class="fasting-target-line"><span data-fasting-target>${preset.label} target</span><span data-fasting-percent>${fast.percent}%</span></div>
       <div class="fasting-brief" data-fasting-brief>
@@ -718,6 +719,7 @@ function updateFastingTicker() {
   document.querySelector("[data-fasting-percent]")?.replaceChildren(`${fast.percent}%`);
   document.querySelector("[data-fasting-clock]")?.replaceChildren(formatStopwatch(fast.elapsedSeconds));
   document.querySelector("[data-fasting-remaining]")?.replaceChildren(fast.complete ? "Complete" : formatStopwatch(remaining));
+  document.querySelector("[data-fasting-goal-time]")?.replaceChildren(formatFastingGoalTime());
   const meter = document.querySelector("[data-fasting-meter]");
   if (meter) meter.style.width = `${fast.percent}%`;
   document.querySelector("[data-fasting-progress]")?.setAttribute("aria-label", `${fast.percent}% of fasting target complete`);
@@ -732,6 +734,13 @@ function formatStopwatch(totalSeconds) {
   const minutes = Math.floor((clean % 3600) / 60);
   const seconds = clean % 60;
   return [hours, minutes, seconds].map((value) => String(value).padStart(2, "0")).join(":");
+}
+
+function formatFastingGoalTime() {
+  const started = new Date(state.fasting.startedAt);
+  if (!state.fasting.active || Number.isNaN(started.getTime())) return "--:--";
+  const goal = new Date(started.getTime() + state.fasting.targetHours * 3600000);
+  return goal.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 }
 
 function parseStopwatch(value) {
@@ -2381,7 +2390,7 @@ function resizeHabitImage(file) {
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-  navigator.serviceWorker.register("service-worker.js?v=43").catch((error) => console.warn("Service worker failed", error));
+  navigator.serviceWorker.register("service-worker.js?v=44").catch((error) => console.warn("Service worker failed", error));
   });
 }
 
